@@ -143,3 +143,28 @@ The hybrid text-block + tool_use pattern documented in `docs/extraction-prompt-v
    - redesign `values` to permit a free-form map for non-labs (rejected — would break `/eval` matching algorithm)
 
    The interim is the prompt-tightening + zod-drop combination. If H8–H9 iteration shows the model still violates after the explicit guidance, escalate to schema redesign discussion.
+
+---
+
+### 9. Case 3 (Block 1 PDFs + Block 2 GT labels) deferred to H8 deadline (added 2026-05-10)
+
+LOCKED. Pre-H0 Blocks 1 + 2 are consciously deferred. Murat may complete the labeling between now and the H8 fork, or may not. Either outcome is planned-for.
+
+**Why deferred:** Murat is time-constrained for the focused 1.5–2 hr labeling sitting that EVAL.md "step-by-step for Murat" requires. Doing it under-resourced (split across days, half-attention) produces label drift that corrupts the metric — worse than not having it at all. Scaffolding deferred without contaminating any other work.
+
+**Why ChatGPT-drafted labels were rejected:** considered and declined. Held-out evaluation is model-vs-human ground truth, not model-vs-model. Different model family (GPT vs Claude) doesn't fix the deeper issue — both share systematic biases about what counts as a clinical event, both miss the same kinds of subtle events, both pick weird snippet choices. A judge with NLP background will recognize that machine-vs-machine eval inflates the metric. Pure-human labeling stays the standard; if there's no time for it, deferring is more honest than substituting.
+
+**Hard deadline:** **before H8 of the build clock.** H8 is the prompt-iteration hour. Iterating against Cases 1+2 metrics IS allowed without Case 3 locked, BUT if Case 3 is added later, the iteration was contaminated (the prompt was tuned in a world where Case 3 might have been peeked at — even if it wasn't). The honest-narration version requires Case 3 locked before iteration starts.
+
+**Two paths at the H8 fork:**
+
+- **Path A (labeling done by H8):** lock it (`git hash-object` + `chmod 444` + commit per §7), proceed with normal H8–H9 prompt iteration, demo beat 3 (`/eval` Case 3 live tab) works at H11.
+- **Path B (labeling NOT done by H8):** freeze the prompt where it is. Skip H8–H9 prompt iteration entirely. Use freed time for polish. Demo becomes 3-beat (drop beat 3 — the Case 3 live narration). The `/eval` page still works, just with the Cases 1+2 cached tab only. Honest framing: *"We measured ourselves on the cases we built — here's the precision/recall."* Less compelling than the held-out story, but not dishonest.
+
+**Code-side impact (small, deferred to H7→H8 cycle):**
+
+`app/api/eval/route.ts` `mode=live` path needs a 5-line graceful-degrade conditional: if `held_out/case3/.gt_hash.lock` does not exist, send SSE error frame `{type:"error", code:"gt_not_present", message:"Held-out evaluation pending — Case 3 ground truth not yet locked", retryable:false}` and close the stream. Frontend renders a friendly inline message on the live tab. Add a new error code `gt_not_present` to BACKEND-STANDARDS J.1 alongside `gt_hash_mismatch` and `prompt_dirty`. This is the only code change deferral causes.
+
+**Folder scaffold landed in this cycle:** `held_out/case3/README.md` (with deferred-status banner pointing here), `held_out/case3/ground_truth.json` (shape-stub template), `held_out/case3/docs/.gitkeep` (PDFs go here when Murat is ready).
+
+**No other doc/code surfaces changed.** The held-out architecture was already designed for "GT might not exist yet" — this just exercises that path explicitly.
