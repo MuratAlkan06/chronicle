@@ -1,25 +1,31 @@
 # Case 2 — Maria Rodriguez — source drafts → PDFs
 
-These markdown drafts are the *content* of the 6 PDFs for Case 2. They are NOT
-the PDFs themselves. Conversion workflow is identical to Case 1 — see
-`data/cases/case1/source_drafts/README.md`.
+Two file formats here for each of the 6 documents:
+- `dN_*.md` — the original markdown draft (for reading/reference)
+- `dN_*.html` — pre-cleaned, print-ready HTML (use this for PDF export)
 
-**Verbatim-snippet rule:** lines marked `[SNIPPET — DO NOT EDIT]` must appear
-in the PDF without changes — they are the ground-truth `source.snippet`
-values in `MOCK_DATA.md`.
+## Recommended workflow — Chrome print-to-PDF (~4 min total)
 
-**Per-doc requirements (BUILD.md Block 3, Q22):**
-- ≥2 medical abbreviations per doc — already present.
-- ≥1 date format inconsistency per doc — woven in.
-- 1 cross-doc contradiction across the case — built into d4 (surgery
-  consult). The HPI prose mistakenly cites the mass at the **1 o'clock**
-  position when reviewing the mammogram; the actual mammogram report (d2)
-  states **11 o'clock**. The procedure section of d4 itself uses the
-  correct 11 o'clock position. This is the realistic kind of typo / dictation
-  error patient records are full of.
+For each `.html` file:
+1. Double-click to open it in Chrome.
+2. `Cmd+P` → **Destination:** "Save as PDF" → **Margins:** Default → **Paper size:** Letter.
+3. Save with the matching filename: `d1_obgyn_2024_02.pdf`, `d2_mammo_2024_02.pdf`, etc.
+4. Drop into the sibling `data/cases/case2/docs/` directory.
 
-Filename rule: must match `document_id` in `MOCK_DATA.md` exactly:
-`d1_obgyn_2024_02.pdf`, `d2_mammo_2024_02.pdf`, `d3_referral_2024_03.pdf`,
-`d4_surgery_2024_03.pdf`, `d5_biopsy_2024_03.pdf`, `d6_obgyn_2024_05.pdf`.
+The cross-doc contradiction (1 o'clock typo in d4's HPI vs 11 o'clock in d2's mammogram report) is already woven in.
 
-Total: 6 PDFs × ~1–2 pages each. ~25–30 min if you don't fuss with formatting.
+## Filename rule (must match `MOCK_DATA.md` exactly)
+
+```
+data/cases/case2/docs/
+├── d1_obgyn_2024_02.pdf
+├── d2_mammo_2024_02.pdf
+├── d3_referral_2024_03.pdf
+├── d4_surgery_2024_03.pdf
+├── d5_biopsy_2024_03.pdf
+└── d6_obgyn_2024_05.pdf
+```
+
+## Google Docs alternative
+
+Open the `.html` in Chrome → `Cmd+A` → `Cmd+C` → paste into a new Google Doc → File → Download → PDF Document. Insert hard page breaks (`Cmd+Enter`) manually where new sections start; CSS page-breaks don't survive paste.
