@@ -605,9 +605,7 @@ function BentoCell({
         <span className="flex h-9 w-9 items-center justify-center rounded-md border border-line bg-base text-accent-teal transition-colors duration-200 group-hover/cell:border-ink-subtle">
           <Icon className="h-4 w-4" strokeWidth={1.6} aria-hidden />
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-subtle">
-          Step {step}
-        </span>
+        <BentoStepBadge step={step} />
       </div>
       <h3 className="mt-7 text-[24px] font-semibold leading-tight tracking-[-0.02em] text-ink">
         {title}
@@ -619,6 +617,45 @@ function BentoCell({
         {caption}
       </p>
       {children ? <div className="mt-7 flex-1">{children}</div> : null}
+    </div>
+  );
+}
+
+// Step indicator with animated progress segments — cell N fills N of 3 bars.
+function BentoStepBadge({ step }: { step: string }) {
+  const reduce = useReducedMotion();
+  const current = parseInt(step, 10);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-subtle">
+        {step} / 03
+      </span>
+      <div className="flex gap-1">
+        {[1, 2, 3].map((n) => {
+          const filled = n <= current;
+          return (
+            <motion.span
+              key={n}
+              aria-hidden
+              className="block h-[2px] w-4"
+              style={{
+                backgroundColor: filled
+                  ? "var(--color-accent-teal)"
+                  : "var(--color-line)",
+                transformOrigin: "left center",
+              }}
+              initial={reduce ? false : { scaleX: 0 }}
+              whileInView={reduce ? undefined : { scaleX: 1 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{
+                duration: 0.4,
+                delay: reduce ? 0 : 0.25 + n * 0.08,
+                ease: EASE,
+              }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -992,6 +1029,9 @@ function FinalCta() {
       <div
         className={`relative mx-auto w-full ${SECTION_MAX} px-8 py-32 md:py-40`}
       >
+        <SectionEntrance className="mb-16">
+          <LiveMetricsStrip />
+        </SectionEntrance>
         <SectionEntrance>
           <div className="grid grid-cols-12 items-end gap-8">
             <div className="col-span-12 md:col-span-8">
@@ -1134,6 +1174,76 @@ function FooterCol({
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// LiveMetricsStrip — surfaces real /eval numbers above the final CTA.
+// Numbers are from data/eval_reports/case[12].json (strict F1 + n_gt). They
+// don't change between commits at this point in the build, so they're
+// hardcoded here. Update if prompts/CHANGELOG.md gets a new active entry.
+// ---------------------------------------------------------------------------
+
+function LiveMetricsStrip() {
+  const reduce = useReducedMotion();
+  const metrics = [
+    { value: 0.77, label: "Strict F1 · Sarah Chen", sub: "13 GT events" },
+    { value: 0.88, label: "Strict F1 · Maria Rodriguez", sub: "8 GT events" },
+    { value: 0.82, label: "Average · iterated", sub: "v1 → v4 +27pt" },
+  ];
+  return (
+    <div className="mx-auto max-w-3xl">
+      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-subtle">
+        Measured · prompts/CHANGELOG.md
+      </p>
+      <div className="mt-5 grid grid-cols-1 gap-4 border-y border-line py-7 sm:grid-cols-3">
+        {metrics.map((m, i) => (
+          <div key={m.label} className="relative">
+            {i > 0 ? (
+              <span
+                aria-hidden
+                className="absolute left-0 top-1 hidden h-full w-px bg-line sm:block"
+                style={{ left: "-0.5rem" }}
+              />
+            ) : null}
+            <MetricNumber to={m.value} reduce={reduce ?? false} />
+            <p className="mt-2 text-[12px] font-medium leading-tight text-ink">
+              {m.label}
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-subtle">
+              {m.sub}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MetricNumber({ to, reduce }: { to: number; reduce: boolean }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-50px" });
+  const [val, setVal] = useState(reduce ? to : 0);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / 1100);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(to * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, to, reduce]);
+  return (
+    <span
+      ref={ref}
+      className="block text-[36px] font-semibold leading-none tracking-[-0.03em] text-ink tabular-nums"
+    >
+      {val.toFixed(2)}
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // KineticHeadline — word-by-word stagger reveal with subtle blur unwind
