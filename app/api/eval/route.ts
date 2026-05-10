@@ -171,7 +171,7 @@ function handleLive(request: Request): Response {
   const gtPath = join(caseDir, "ground_truth.json");
   const lockPath = join(caseDir, ".gt_hash.lock");
   const docsDir = join(caseDir, "docs");
-  const promptPath = join(cwd, "prompts", "system_extract_v1.md");
+  const promptPath = join(cwd, "prompts", "system_extract_v4.md");
   const signal = request.signal;
 
   const stream = createSseStream({
