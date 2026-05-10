@@ -13,7 +13,7 @@ Patients managing chronic conditions often have 30+ documents from multiple prov
 ## What it does
 
 1. Patient drops PDFs onto the canvas at `/app`.
-2. Backend extracts structured timeline events using Claude (Sonnet 4.6 + native PDF + Citations API). Every event has a verbatim source quote.
+2. Backend extracts structured timeline events using Claude (Sonnet 4.6 + native PDF). Every event has a verbatim source quote, validated by sliding-window match against the PDF text-layer in `lib/match.ts`. (Citations API was dropped post Block 5b verification — see PLAN.md Q1.)
 3. Frontend renders an animated chronological timeline with per-doc streaming insertion.
 4. Click any event → side panel opens with the source PDF scrolled to the relevant page, supporting paragraph highlighted.
 5. `/eval` route shows precision/recall metrics on a held-out case, with the eval running live for the credibility moment.
@@ -47,7 +47,7 @@ Patients managing chronic conditions often have 30+ documents from multiple prov
 
 ## Stack (one-line)
 
-Single Next.js (TS) full-stack app · Anthropic Claude Sonnet 4.6 + Citations API (extraction) · Haiku 4.5 / Gemini Flash (patient explainer) · Voyage `voyage-3` embeddings · react-pdf · Framer Motion · Tailwind + shadcn/ui · in-memory state with JSON fixtures.
+Single Next.js (TS) full-stack app · Anthropic Claude Sonnet 4.6 (native PDF, tool-forced extraction) · Haiku 4.5 / Gemini Flash (patient explainer) · Voyage `voyage-3` embeddings · react-pdf · Framer Motion · Tailwind + shadcn/ui · in-memory state with JSON fixtures.
 
 ## Sample patient cases
 
