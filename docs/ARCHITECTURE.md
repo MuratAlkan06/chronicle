@@ -2,7 +2,7 @@
 
 ## 1. Stack with justification
 
-**Locked stack:** Next.js 15 (App Router, TypeScript) full-stack · Anthropic Claude Sonnet 4.6 (extraction, native PDF + Citations API) · Haiku 4.5 or Gemini 2.5 Flash (patient explainer) · Voyage `voyage-3` embeddings (related-events) · Tailwind CSS · shadcn/ui · Framer Motion · react-pdf · in-memory state (no DB) · JSON fixtures under `/data/cases/`.
+**Locked stack:** Next.js 16 (App Router, TypeScript) full-stack · Anthropic Claude Sonnet 4.6 (extraction, native PDF + Citations API) · Haiku 4.5 or Gemini 2.5 Flash (patient explainer) · Voyage `voyage-3` embeddings (related-events) · Tailwind CSS · shadcn/ui · Framer Motion · react-pdf · in-memory state (no DB) · JSON fixtures under `/data/cases/`.
 
 **Why this stack survives 12 hr solo:**
 
@@ -281,7 +281,7 @@ Footer "View evaluation metrics" link → router.push("/eval")
 ├── package.json
 ├── tsconfig.json
 ├── postcss.config.mjs              # Tailwind v4 PostCSS plugin (severity color tokens live in app/globals.css @theme inline block)
-├── next.config.js                  # serverActions: false; experimental.serverComponentsExternalPackages: ['pdfjs-dist']
+├── next.config.ts                  # serverExternalPackages: ['pdfjs-dist'] (Next 16: top-level, no longer experimental)
 ├── .env.example                    # ANTHROPIC_API_KEY, VOYAGE_API_KEY, GEMINI_API_KEY
 ├── .env.local                      # gitignored
 └── README.md                       # demo instructions, model swap note (Q26)

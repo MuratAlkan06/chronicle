@@ -315,7 +315,7 @@ Hard-kill criteria at H4/H6/H8/H10/H11 are already mitigated. These are **new** 
 - *Trigger:* H5 with full Case 1 batch — observable as cards mid-position-jumping or layout-thrashing.
 - *Likelihood:* Medium-high. `layout` animation re-measures DOM on every list mutation; with rapid SSE arrivals, React batches updates and layout calculations can collide.
 - *Blast radius:* Demo's hero animation looks broken in the most-watched moment.
-- *Mitigation:* (a) **Throttle SSE consumer** in `useExtractionStream` to flush at most 1 event per 150ms via a setTimeout-debounced reducer dispatch. Smooths the visual flow regardless of how fast events arrive. (b) The H8 hard-kill gate strips Framer entirely if needed — that's the floor. (c) Pre-stage: in `next.config.js` enable `reactStrictMode: false` for the demo (StrictMode double-renders amplify Framer measurement issues; the trade-off is acceptable for a demo).
+- *Mitigation:* (a) **Throttle SSE consumer** in `useExtractionStream` to flush at most 1 event per 150ms via a setTimeout-debounced reducer dispatch. Smooths the visual flow regardless of how fast events arrive. (b) The H8 hard-kill gate strips Framer entirely if needed — that's the floor. (c) Pre-stage: in `next.config.ts` enable `reactStrictMode: false` for the demo (StrictMode double-renders amplify Framer measurement issues; the trade-off is acceptable for a demo).
 
 **Risk 3: Sonnet 4.6 strict-match precision on Case 3 is below 0.5 AND Opus 4.7 also disappoints.**
 - *Trigger:* H11 live run shows poor numbers, escape hatch model swap doesn't recover them.
