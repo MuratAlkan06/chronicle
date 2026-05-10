@@ -259,11 +259,11 @@ Q9 (panel doesn't reflow timeline) + Q11 (no drawer) + Q24 (desktop-only demo) m
 ## Open items / verify before H0
 
 - [x] Verify Citations API surface — DONE (Block 5b, 2026-05-09). Result: citations do NOT attach to text blocks when forced-tool flow is used; `auto` mode also did not attach. Took BUILD.md Risk 1 worst-case fallback (no Citations API). See PLAN.md Q1 (amended) + scripts/verify-citations.py + prompts/system_extract_v1.md preamble + docs/RESOLVED-DECISIONS.md §8.
-- [ ] Voyage API key procured (or OpenAI `text-embedding-3-small` key as fallback).
-- [ ] Gemini API key procured (or commit to Haiku 4.5 explainer per Q26 fallback).
-- [ ] Case 3 PDFs written and locked. Case 3 ground-truth labels written and committed to `held_out/case3/` (protocol in [docs/EVAL.md](docs/EVAL.md)).
-- [ ] Cases 1+2 PDFs written.
-- [ ] Cases 1+2 pre-extracted to `events.json` and committed (cached for demo speed).
+- [x] Voyage API key procured (in `.env.local`, 2026-05-09).
+- [x] Gemini API key procured (in `.env.local`, 2026-05-09).
+- [ ] Case 3 PDFs written and locked. Case 3 ground-truth labels written and committed to `held_out/case3/` (protocol in [docs/EVAL.md](docs/EVAL.md)). **DEFERRED to before-H8 deadline (2026-05-10) per [docs/RESOLVED-DECISIONS.md](docs/RESOLVED-DECISIONS.md) §9.** Folder scaffold landed at `held_out/case3/` (README + ground_truth.json template stub + docs/.gitkeep). Path A/B fork at H8 documented in §9.
+- [x] Cases 1+2 PDFs written. (PR #2, 2026-05-09 — 13 PDFs in `data/cases/case[12]/docs/`, all snippets verified verbatim.)
+- [ ] Cases 1+2 pre-extracted to `events.json` and committed (cached for demo speed). **Deferred to H7 Block 7 — that's where `scripts/extract-case.ts` runs them.**
 - [ ] Color palette + severity color mapping locked in Figma (info / monitor / concerning / urgent).
 - [ ] Typography pair locked (recommend Inter + Source Serif).
 - [ ] Figma updated to match these decisions: vertical scroll; overlay 480px with scrim, no reflow; no severity icon; no eval drawer; per-doc stream-in processing screen; refined date treatment.

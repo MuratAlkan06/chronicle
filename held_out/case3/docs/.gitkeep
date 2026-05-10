@@ -1,0 +1,3 @@
+# PDFs go here. Filenames must follow the pattern: d{1,2,3,...}_{slug}_{YYYY}_{MM}.pdf
+# e.g. d1_pcp_2024_01.pdf, d4_mri_2024_03.pdf
+# This .gitkeep file can be deleted once real PDFs are present.

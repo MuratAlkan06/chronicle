@@ -1,0 +1,19 @@
+{
+  "case_id": "case3",
+  "patient": "David Park, 38M",
+  "labeled_at": "REPLACE_WITH_ISO_TIMESTAMP_AT_END_OF_LABELING",
+  "labeler_notes": "Free-text. Document any judgment calls you made during labeling: events you almost included but excluded, ambiguous date assignments, doc-vs-doc contradictions you resolved one way or the other. This is for your future self when reviewing the metric at H11.",
+  "events": [
+    {
+      "_comment_DELETE_THIS_BEFORE_LABELING": "This is a SHAPE STUB. Replace this entire events array with your real labeled events. Each event follows this exact schema. See docs/EVAL.md for field-by-field guidance and the labeling protocol. Required fields: id, date, date_confidence, event_type, title, source_document, in_scope. Optional: notes.",
+      "id": "gt_001",
+      "date": "2024-01-15",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP visit — chief complaint",
+      "source_document": "d1_pcp_2024_01.pdf",
+      "in_scope": true,
+      "notes": "Initial presentation. Optional free-text field for labeler context."
+    }
+  ]
+}
