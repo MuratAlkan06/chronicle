@@ -1,0 +1,80 @@
+{
+  "case_id": "case2",
+  "patient": "Maria Rodriguez, 52F",
+  "labeled_at": "2026-05-10T00:00:00-07:00",
+  "labeler_notes": "Derived from MOCK_DATA.md hand-authored fixture events. Used as oracle for prompt iteration only; the held-out discipline applies to Case 3, not Cases 1+2.",
+  "events": [
+    {
+      "id": "gt_001",
+      "date": "2024-02-08",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "OB/GYN annual visit",
+      "source_document": "d1_obgyn_2024_02.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_002",
+      "date": "2024-02-08",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to imaging — screening mammogram",
+      "source_document": "d1_obgyn_2024_02.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_003",
+      "date": "2024-02-22",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Mammogram — BI-RADS 4 (suspicious)",
+      "source_document": "d2_mammo_2024_02.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_004",
+      "date": "2024-03-05",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to breast surgery",
+      "source_document": "d3_referral_2024_03.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_005",
+      "date": "2024-03-19",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Breast surgery consult",
+      "source_document": "d4_surgery_2024_03.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_006",
+      "date": "2024-03-19",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Core needle biopsy scheduled",
+      "source_document": "d4_surgery_2024_03.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_007",
+      "date": "2024-03-28",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Core needle biopsy — benign",
+      "source_document": "d5_biopsy_2024_03.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_008",
+      "date": "2024-05-02",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "OB/GYN follow-up — benign result discussion",
+      "source_document": "d6_obgyn_2024_05.pdf",
+      "in_scope": true
+    }
+  ]
+}
