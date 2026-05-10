@@ -1,0 +1,535 @@
+{
+  "case_id": "case1",
+  "patient": "Sarah Chen, 47F",
+  "condition": "Type 2 Diabetes Mellitus",
+  "events": [
+    {
+      "id": "9aa8524a-7a30-490b-b316-4e986ae3fb6b",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP annual physical — fatigue & increased thirst",
+      "summary": "Routine annual physical with Dr. Levy. Patient reported three months of fatigue and gradually worsening increased thirst (polydipsia), along with intermittent blurred vision and nocturia.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 1,
+        "snippet": "Pt presents today for routine annual physical. Reports fatigue × 3 months and increased thirst."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "2a209543-899d-4a0e-8db4-ff1ef4afa6c0",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "Fasting glucose — 187 mg/dL (High)",
+      "summary": "Fasting blood glucose was significantly elevated at 187 mg/dL, well above the normal range of 70–99 mg/dL, consistent with new-onset diabetes.",
+      "severity": "concerning",
+      "values": {
+        "key": "Glucose, fasting",
+        "value": "187",
+        "unit": "mg/dL",
+        "ref_range": "70-99",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 2,
+        "snippet": "Glucose, fasting 187 H 70-99 mg/dL"
+      },
+      "related_ids": []
+    },
+    {
+      "id": "e68c98c9-3097-4d15-b206-e95b6cbfb71e",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 9.2% (High)",
+      "summary": "Glycated hemoglobin (HbA1c) was markedly elevated at 9.2%, well above the normal range of 4.0–5.6%, consistent with new-onset Type 2 diabetes.",
+      "severity": "concerning",
+      "values": {
+        "key": "HbA1c",
+        "value": "9.2",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 2,
+        "snippet": "HbA1c: 9.2% (H) — Reference range 4.0-5.6%."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "de2c796a-e553-4ae5-9efa-094bc2c88d32",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "LDL cholesterol — 132 mg/dL (High)",
+      "summary": "LDL (low-density lipoprotein, or 'bad' cholesterol) was elevated at 132 mg/dL, above the goal of less than 100 mg/dL.",
+      "severity": "monitor",
+      "values": {
+        "key": "LDL",
+        "value": "132",
+        "unit": "mg/dL",
+        "ref_range": "<100",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 2,
+        "snippet": "LDL 132 H <100 mg/dL"
+      },
+      "related_ids": []
+    },
+    {
+      "id": "de2324c5-dc52-4e04-b03e-b7817a9057fe",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "New Dx: Type 2 Diabetes Mellitus (E11.9)",
+      "summary": "Type 2 Diabetes Mellitus was newly diagnosed and added to the active problem list, based on elevated fasting glucose and HbA1c results.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 3,
+        "snippet": "Assessment: Type 2 Diabetes Mellitus (E11.9) — added to problem list."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "3d84a3a0-5635-4bad-8f03-33338470e19d",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Borderline hyperlipidemia noted",
+      "summary": "Borderline high cholesterol (hyperlipidemia) was identified. A statin medication was not started yet; a lifestyle trial will be tried first with lipids rechecked in 6 months.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 3,
+        "snippet": "Hyperlipidemia, borderline. Defer statin pending lifestyle trial; recheck lipids in 6 months."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "d8eb7e31-6bc2-406f-8833-d72ef988ca1f",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Started metformin 500 mg twice daily",
+      "summary": "Metformin 500 mg by mouth twice daily with meals was started as first-line treatment for newly diagnosed Type 2 diabetes.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 3,
+        "snippet": "Plan: Start metformin 500 mg PO b.i.d. with meals. F/u in 3 months for repeat A1c."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "0db2d1af-b7da-49f3-a564-d5a494c9bfee",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to diabetes educator",
+      "summary": "A referral was placed for diabetes education to help with managing the new Type 2 diabetes diagnosis.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d1_pcp_2023_01",
+        "page": 3,
+        "snippet": "Refer to diabetes educator. Home glucometer prescribed; check fasting BG 3×/week."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "fe0704e2-e84c-43fe-a5f3-a189605f0a5b",
+      "date": "2023-01-12",
+      "date_text": "01/12/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "Prior HbA1c — 9.2% (referenced)",
+      "summary": "A prior Hemoglobin A1c result of 9.2% was obtained on January 12, 2023, referenced in this report as the baseline for comparison. The April 2023 result of 8.4% represents an improvement from this value.",
+      "severity": "concerning",
+      "values": {
+        "key": "Hemoglobin A1c",
+        "value": "9.2",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d2_lab_2023_04",
+        "page": 1,
+        "snippet": "This result represents an improvement from a prior value of 9.2% obtained on 01/12/2023 under account 4471028."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "7ee1f545-21c5-4f75-992d-14cd9d84ea3a",
+      "date": "2023-04-18",
+      "date_text": "04/18/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 8.4% (elevated)",
+      "summary": "Hemoglobin A1c (a 3-month average blood sugar marker) came back at 8.4%, which is above the normal range and above the typical diabetes management goal of under 7.0%. This is an improvement compared to the prior result of 9.2% from January 2023.",
+      "severity": "concerning",
+      "values": {
+        "key": "Hemoglobin A1c",
+        "value": "8.4",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d2_lab_2023_04",
+        "page": 1,
+        "snippet": "Test: Hemoglobin A1c. Result: 8.4 % (H). Reference: 4.0-5.6 %."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "bf989723-8c46-4ec7-b83d-2adec03169e3",
+      "date": "2023-04-18",
+      "date_text": "04/18/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 8.4% (improved, still above goal)",
+      "summary": "Glycated hemoglobin (A1c) improved from 9.2% to 8.4% compared to January, but remains above the treatment goal of less than 7.0%.",
+      "severity": "monitor",
+      "values": {
+        "key": "HbA1c",
+        "value": "8.4",
+        "unit": "%",
+        "ref_range": "<7.0",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d3_pcp_2023_05",
+        "page": 1,
+        "snippet": "April lab work (drawn 04/18/2023) showed A1c improved from 9.2% to 8.4%, which is encouraging but still above the goal of <7.0%."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "75b2f7e0-9bd0-4a6c-97b6-5bb0bfba5de3",
+      "date": "2023-04-18",
+      "date_text": "04/18/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "Prior HbA1c — 8.4% (referenced)",
+      "summary": "A prior HbA1c result of 8.4% was drawn on April 18, 2023, referenced in this August 2023 report as the baseline for comparison.",
+      "severity": "concerning",
+      "values": {
+        "key": "HbA1c",
+        "value": "8.4",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d4_lab_2023_08",
+        "page": 1,
+        "snippet": "HbA1c has decreased from 8.4% (drawn 04/18/2023) to 7.2%"
+      },
+      "related_ids": []
+    },
+    {
+      "id": "a76aa13b-f7dd-41bf-a87a-9ac7384f2a0b",
+      "date": "2023-05-10",
+      "date_text": "May 10, 2023",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Diabetes follow-up visit with Dr. Levy",
+      "summary": "Three-month follow-up for Type 2 diabetes (T2D). Patient reported good adherence to metformin, improved energy, resolved excessive thirst, and home fasting blood glucose trending down to the 130–150 range from the initial 180s.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d3_pcp_2023_05",
+        "page": 1,
+        "snippet": "Pt returns for f/u of T2D. A1c 8.4% on metformin 500 b.i.d. Tolerating well, no GI sx."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "4e1d9ca1-11f4-45dc-8fc3-fdf64f18ffae",
+      "date": "2023-05-10",
+      "date_text": "May 10, 2023",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Metformin dose increased to 1000 mg b.i.d.",
+      "summary": "Metformin was increased from 500 mg to 1000 mg twice daily due to partial response. Patient was advised to titrate the dose gradually over 5 days to minimize stomach upset.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d3_pcp_2023_05",
+        "page": 2,
+        "snippet": "Δ metformin → 1000 mg PO b.i.d. F/u A1c in 3 months."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "e8b117fe-c8eb-4e98-8e52-a0208fb05a05",
+      "date": "2023-08-21",
+      "date_text": "08/21/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 7.2% (improved from 8.4%)",
+      "summary": "Glycated hemoglobin (HbA1c) came back at 7.2%, still above the normal range but down from 8.4% four months prior, indicating the diabetes management plan is working. The general target for adults with diabetes is below 7.0%.",
+      "severity": "monitor",
+      "values": {
+        "key": "HbA1c",
+        "value": "7.2",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d4_lab_2023_08",
+        "page": 1,
+        "snippet": "The patient's HbA1c has decreased from 8.4% (drawn 04/18/2023) to 7.2%, representing continued response to glycemic management. Goal A1c for non-pregnant adults with diabetes is generally <7.0%."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "79913fff-3c19-431d-982f-d505af6a6680",
+      "date": "2023-08-21",
+      "date_text": "drawn 08/21/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 7.2% (August draw)",
+      "summary": "Glycated hemoglobin (A1c) measured at 7.2% in August — the best result since the patient's diabetes diagnosis in January. This value was referenced in the November visit note.",
+      "severity": "monitor",
+      "values": {
+        "key": "HbA1c",
+        "value": "7.2",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d5_pcp_2023_11",
+        "page": 1,
+        "snippet": "Her August A1c (drawn 08/21/2023) was 7.2%, the best reading since her diagnosis in January."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "bb71f0ed-7e84-4fc9-975c-872f74d1eaf7",
+      "date": "2023-08-21",
+      "date_text": "08/21/2023",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "Prior HbA1c — 7.2% (Aug 2023)",
+      "summary": "A prior HbA1c result of 7.2% was recorded in August 2023, referenced here as a comparison point to the current result showing improvement to 6.9%.",
+      "severity": "monitor",
+      "values": {
+        "key": "Hemoglobin A1c",
+        "value": "7.2",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d6_lab_2024_04",
+        "page": 1,
+        "snippet": "A1c trended from 7.2% (08/21/2023) to 6.9%."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "9efa69c4-47f3-439c-829c-06b70339b7eb",
+      "date": "2023-11-14",
+      "date_text": "11/14/2023",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Diabetes follow-up visit — well controlled",
+      "summary": "Routine 3-month diabetes follow-up with Dr. Levy. Patient reported no hypoglycemic episodes, good energy, and 9 lbs of weight loss since January diagnosis. Foot exam was normal.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d5_pcp_2023_11",
+        "page": 1,
+        "snippet": "Sarah returns for routine 3-month diabetes follow-up. Her August A1c (drawn 08/21/2023) was 7.2%, the best reading since her diagnosis in January. She reports doing well overall. Sleep is normal, energy is good, no hypoglycemic episodes."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "7d29c7ac-2292-4833-9197-e638bd6bd186",
+      "date": "2023-11-14",
+      "date_text": "11/14/2023",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Metformin continued at 850 mg b.i.d.",
+      "summary": "Metformin dose increased from the original 500 mg to 850 mg twice daily is continued unchanged. No new medications were added at this visit.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d5_pcp_2023_11",
+        "page": 2,
+        "snippet": "Continue metformin 850 mg PO b.i.d. as currently prescribed."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "71d95e5d-9bea-45bc-bcf3-0a8661627161",
+      "date": "2023-11-14",
+      "date_text": "11/14/2023",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral placed — annual diabetic eye exam",
+      "summary": "A referral for an annual diabetic eye exam was placed at this visit, as part of routine diabetes monitoring.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d5_pcp_2023_11",
+        "page": 2,
+        "snippet": "Annual diabetic eye exam referral placed (separate document)."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "bd4ffb16-c8b9-4139-a4f7-b8bcebb794a0",
+      "date": "2024-04-03",
+      "date_text": "04/03/2024",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 6.9% (at diabetes target)",
+      "summary": "Glycated hemoglobin (HbA1c) came back at 6.9%, which is above the normal reference range but at or below the American Diabetes Association's recommended treatment target of less than 7.0% for adults with diabetes. This is an improvement from 7.2% in August 2023.",
+      "severity": "monitor",
+      "values": {
+        "key": "Hemoglobin A1c",
+        "value": "6.9",
+        "unit": "%",
+        "ref_range": "4.0-5.6",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d6_lab_2024_04",
+        "page": 1,
+        "snippet": "Hemoglobin A1c: 6.9 % (H). Reference range 4.0-5.6 %. Note: at target for diabetic patients (<7.0)."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "c98642b6-351a-4bf7-904c-75c6dbbec9ff",
+      "date": "2024-04-03",
+      "date_text": "04/03/2024",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "Fasting Lipid Panel — LDL 145 mg/dL (high)",
+      "summary": "Fasting lipid panel showed LDL (bad cholesterol) of 145 mg/dL, above the optimal level of less than 100 mg/dL. Total cholesterol and non-HDL cholesterol were also elevated; HDL (good cholesterol) and triglycerides were within normal range.",
+      "severity": "concerning",
+      "values": {
+        "key": "LDL (calculated)",
+        "value": "145",
+        "unit": "mg/dL",
+        "ref_range": "<100",
+        "flag": "high"
+      },
+      "provider": "Levy, Sarah, MD",
+      "source": {
+        "document_id": "d6_lab_2024_04",
+        "page": 2,
+        "snippet": "LDL Cholesterol: 145 mg/dL (H). Reference: <100 mg/dL optimal."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "f5f27d4e-8d90-482c-ab29-519d0d12edb8",
+      "date": "2024-04-03",
+      "date_text": "April",
+      "date_confidence": "approximate",
+      "event_type": "lab",
+      "title": "LDL cholesterol — 145 mg/dL (borderline high)",
+      "summary": "LDL (low-density lipoprotein, the 'bad' cholesterol) was 145 in April, above the typical target. Decision was made to continue lifestyle management rather than start a statin medication at that time.",
+      "severity": "monitor",
+      "values": {
+        "key": "LDL",
+        "value": "145",
+        "unit": "mg/dL",
+        "ref_range": "<100",
+        "flag": "high"
+      },
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d7_pcp_2024_07",
+        "page": 1,
+        "snippet": "Her April lipid panel showed an LDL of 145, which we discussed at the time and elected to manage with continued lifestyle measures rather than initiating a statin immediately."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "94e230a7-42cf-4dd4-830c-bde55fdc5fe8",
+      "date": "2024-07-22",
+      "date_text": "07/22/2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Annual physical — PCP",
+      "summary": "Routine annual physical with Dr. Levy. No new complaints. Exam was unremarkable including a normal diabetic foot exam. Type 2 diabetes (T2D) and borderline high cholesterol (HLD) reviewed.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d7_pcp_2024_07",
+        "page": 1,
+        "snippet": "Sarah returns for her routine annual physical. She is now 18 months out from her diabetes diagnosis."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "9508eeba-37a8-4e20-835e-eced231d2d70",
+      "date": "2024-07-22",
+      "date_text": "07/22/2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral — annual diabetic eye exam",
+      "summary": "A referral for the annual diabetic eye exam was noted as pending at this visit.",
+      "severity": "info",
+      "values": null,
+      "provider": "Sarah Levy, MD",
+      "source": {
+        "document_id": "d7_pcp_2024_07",
+        "page": 1,
+        "snippet": "Annual diabetic eye exam due — referral pending."
+      },
+      "related_ids": []
+    }
+  ]
+}

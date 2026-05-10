@@ -1,0 +1,125 @@
+{
+  "case_id": "case1",
+  "patient": "Sarah Chen, 47F",
+  "labeled_at": "2026-05-10T00:00:00-07:00",
+  "labeler_notes": "Derived from MOCK_DATA.md hand-authored fixture events. Used as oracle for prompt iteration only; the held-out discipline applies to Case 3, not Cases 1+2.",
+  "events": [
+    {
+      "id": "gt_001",
+      "date": "2023-01-12",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP visit — initial workup",
+      "source_document": "d1_pcp_2023_01.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_002",
+      "date": "2023-01-12",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 9.2%",
+      "source_document": "d1_pcp_2023_01.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_003",
+      "date": "2023-01-12",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Dx added: Type 2 Diabetes Mellitus",
+      "source_document": "d1_pcp_2023_01.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_004",
+      "date": "2023-01-12",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Started metformin 500 mg b.i.d.",
+      "source_document": "d1_pcp_2023_01.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_005",
+      "date": "2023-04-18",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 8.4%",
+      "source_document": "d2_lab_2023_04.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_006",
+      "date": "2023-05-10",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP follow-up — A1c discussion",
+      "source_document": "d3_pcp_2023_05.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_007",
+      "date": "2023-05-10",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Increased metformin to 1000 mg b.i.d.",
+      "source_document": "d3_pcp_2023_05.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_008",
+      "date": "2023-08-21",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 7.2%",
+      "source_document": "d4_lab_2023_08.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_009",
+      "date": "2023-11-14",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP follow-up — lifestyle counseling",
+      "source_document": "d5_pcp_2023_11.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_010",
+      "date": "2023-11-14",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Continue metformin 850 mg b.i.d.",
+      "source_document": "d5_pcp_2023_11.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_011",
+      "date": "2024-04-03",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "HbA1c — 6.9%",
+      "source_document": "d6_lab_2024_04.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_012",
+      "date": "2024-04-03",
+      "date_confidence": "exact",
+      "event_type": "lab",
+      "title": "LDL — 145 mg/dL (borderline high)",
+      "source_document": "d6_lab_2024_04.pdf",
+      "in_scope": true
+    },
+    {
+      "id": "gt_013",
+      "date": "2024-07-22",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Annual physical exam",
+      "source_document": "d7_pcp_2024_07.pdf",
+      "in_scope": true
+    }
+  ]
+}

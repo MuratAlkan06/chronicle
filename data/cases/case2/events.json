@@ -1,0 +1,295 @@
+{
+  "case_id": "case2",
+  "patient": "Maria Rodriguez, 52F",
+  "condition": "Suspicious breast finding (resolved benign)",
+  "events": [
+    {
+      "id": "21334b68-eae7-41e6-b23d-a2fbecf3e61c",
+      "date": "2022-02-04",
+      "date_text": "04-Feb-2022",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Prior mammogram (Feb 2022) — no mass",
+      "summary": "A prior bilateral mammogram from February 2022 was used for comparison. The current right breast mass was not present on that prior study.",
+      "severity": "info",
+      "values": null,
+      "provider": "Westside Breast Imaging",
+      "source": {
+        "document_id": "d2_mammo_2024_02",
+        "page": 1,
+        "snippet": "The mass is new compared to the 02/2022 prior. No associated calcifications. No skin or nipple retraction. No axillary lymphadenopathy."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "2fc43ef5-e853-4846-8797-f79d2f96381b",
+      "date": "2024-02-08",
+      "date_text": "February 8, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "OB/GYN annual visit — unremarkable",
+      "summary": "Routine annual gynecologic visit with Dr. Karen Wu. Breast and pelvic exams were normal with no masses, discharge, or concerning findings.",
+      "severity": "info",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d1_obgyn_2024_02",
+        "page": 1,
+        "snippet": "Annual GYN visit. Pt c/o no breast complaints. Breast exam: no masses palpated bilaterally. Plan: routine screening mammogram."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "9f712858-bec6-4390-b417-8bac2bb5b9f1",
+      "date": "2024-02-08",
+      "date_text": "February 8, 2024",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Pap + HPV co-test performed",
+      "summary": "Cervical cancer screening with a combined Pap smear and HPV co-test was performed during today's visit. Results expected within 7 days.",
+      "severity": "info",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d1_obgyn_2024_02",
+        "page": 2,
+        "snippet": "Pap + HPV co-test performed today. Last normal co-test 02/15/2023. Will report results within 7 days."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "d9fb7412-0b20-49cc-ac06-17a27bc61ea7",
+      "date": "2024-02-08",
+      "date_text": "February 8, 2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral — screening mammogram",
+      "summary": "Referred to Breast Imaging Center for a routine screening mammogram, due now as the last one was over 24 months ago (February 2022).",
+      "severity": "info",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d1_obgyn_2024_02",
+        "page": 2,
+        "snippet": "Refer to Breast Imaging Center for screening mammogram.\nLast screening mammogram was 04-Feb-2022 (over the 24-month interval, due now)."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "58db9a39-90f6-4c24-be33-90c7ab22e12d",
+      "date": "2024-02-22",
+      "date_text": "02/22/2024",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Mammogram — BI-RADS 4 (suspicious), right breast",
+      "summary": "Screening mammogram (with digital breast tomosynthesis) found a new 1.2 cm spiculated (irregular) mass in the right breast at the 11 o'clock position. This was rated BI-RADS 4 (suspicious), and a biopsy was recommended. The left breast was normal (BI-RADS 1).",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Daniel Park, MD",
+      "source": {
+        "document_id": "d2_mammo_2024_02",
+        "page": 1,
+        "snippet": "FINDINGS: 1.2 cm spiculated mass identified in right breast at the 11 o'clock position, approx 3 cm from nipple. ASSESSMENT: BI-RADS 4 — Suspicious abnormality. Biopsy recommended."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "f7139044-1ff2-499b-822a-5efd43bb1542",
+      "date": "2024-02-22",
+      "date_text": "02/22/2024",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Mammogram — BI-RADS 4 (suspicious), 1.2 cm right breast mass",
+      "summary": "Routine screening mammogram at Westside Breast Imaging identified a new 1.2 cm spiculated (irregular) mass in the right breast at the 11 o'clock position. BI-RADS category 4 — suspicious; ultrasound-guided core needle biopsy recommended.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Daniel Park, MD",
+      "source": {
+        "document_id": "d3_referral_2024_03",
+        "page": 1,
+        "snippet": "routine screening mammogram on 02/22/2024 (Westside Breast Imaging) demonstrating a new 1.2 cm spiculated mass in the right breast at the 11 o'clock position, approximately 3 cm from the nipple. BI-RADS 4. The radiologist recommended ultrasound-guided core needle biopsy."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "a0a8535f-b9f5-4282-bc99-37893e78d60b",
+      "date": "2024-02-22",
+      "date_text": "02/22/2024",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Mammogram review — 1.2 cm spiculated mass, 11 o'clock",
+      "summary": "Dr. Patel personally reviewed the February 22, 2024 mammogram and confirmed a 1.2 cm spiculated mass in the right breast at the 11 o'clock position, approximately 3 cm from the nipple.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Anil Patel, MD",
+      "source": {
+        "document_id": "d4_surgery_2024_03",
+        "page": 1,
+        "snippet": "Personally reviewed the 02/22/2024 mammogram on PACS. Confirmed a 1.2 cm spiculated mass in the right breast, in the 11 o'clock position, approximately 3 cm from the nipple."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "ef243d77-87e3-4986-95a0-d7b560f4347e",
+      "date": "2024-02-22",
+      "date_text": "02/22/2024",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "Prior screening mammogram — BI-RADS 4 (suspicious)",
+      "summary": "A screening mammogram on this date identified a new 1.2 cm spiculated mass in the right breast at the 11 o'clock position, rated BI-RADS 4 (suspicious), which prompted the biopsy.",
+      "severity": "concerning",
+      "values": null,
+      "provider": null,
+      "source": {
+        "document_id": "d5_biopsy_2024_03",
+        "page": 1,
+        "snippet": "new 1.2 cm spiculated mass in right breast at 11 o'clock, 3 cm from nipple, identified on screening mammogram dated 02/22/2024. BI-RADS 4."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "5c8171d0-cc8a-4b75-a018-2eb7a5dc8d42",
+      "date": "2024-02-26",
+      "date_text": "02/26/2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Patient notified of mammogram findings by phone",
+      "summary": "Patient was informed by phone of the suspicious mammogram finding and expressed a desire to proceed with next steps promptly.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d3_referral_2024_03",
+        "page": 1,
+        "snippet": "Patient was informed of the finding by phone on 02/26/2024 and is anxious to proceed promptly."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "f4cf7397-44ea-4dee-822e-2040563a043a",
+      "date": "2024-03-05",
+      "date_text": "03/05/2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to Breast Surgery — suspicious right breast mass",
+      "summary": "Dr. Karen Wu referred Maria to Dr. Anil Patel (Breast Surgery, UCSF) for evaluation of a suspicious right breast mass found on mammogram, with a request for ultrasound-guided core needle biopsy.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d3_referral_2024_03",
+        "page": 1,
+        "snippet": "Refer to Dr. Patel, Breast Surgery, for evaluation of suspicious mass r/o malignancy."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "3a3732b0-7b7e-42d0-8b7e-a294b2849461",
+      "date": "2024-03-19",
+      "date_text": "March 19, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Breast surgery consult — suspicious right breast mass",
+      "summary": "New consultation with Dr. Anil Patel (Breast Surgery) following a suspicious mammogram result. Physical exam found no palpable mass; imaging was personally reviewed and confirmed a 1.2 cm spiculated mass at the 11 o'clock position of the right breast.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Anil Patel, MD",
+      "source": {
+        "document_id": "d4_surgery_2024_03",
+        "page": 1,
+        "snippet": "Pt seen in consultation for s/p suspicious mammogram. Reviewed images. Plan: schedule core needle biopsy for next week."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "156872f1-8514-4a84-9df0-24da80b492ff",
+      "date": "2024-03-19",
+      "date_text": "March 19, 2024",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Dx: Suspicious right breast mass, BI-RADS 4",
+      "summary": "Right breast mass classified as BI-RADS 4 (suspicious), requiring tissue biopsy to determine whether the finding is benign (such as fibroadenoma) or malignant (such as invasive ductal carcinoma).",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Anil Patel, MD",
+      "source": {
+        "document_id": "d4_surgery_2024_03",
+        "page": 2,
+        "snippet": "Suspicious right breast mass, BI-RADS 4 — needs tissue diagnosis. Risk factors are limited (second-degree family hx only, peri-menopausal age, dense breast tissue). Differential includes fibroadenoma vs. invasive ductal carcinoma vs. other benign etiology."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "a0c78654-9f26-4437-9ed2-4d3733eb8e3e",
+      "date": "2024-03-28",
+      "date_text": "03/28/2024",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Scheduled: Ultrasound-guided core needle biopsy, right breast",
+      "summary": "Ultrasound-guided core needle biopsy of the right breast 11 o'clock mass was scheduled for March 28, 2024. Risks were reviewed with the patient, who consented in principle.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Anil Patel, MD",
+      "source": {
+        "document_id": "d4_surgery_2024_03",
+        "page": 2,
+        "snippet": "Procedure: ultrasound-guided core needle biopsy of right breast 11 o'clock mass scheduled for 03/28/2024."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "0da2b9fa-0be6-459e-b3b0-e3836ad47b06",
+      "date": "2024-03-28",
+      "date_text": "03/28/2024",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Core needle biopsy — right breast, benign",
+      "summary": "Ultrasound-guided core needle biopsy of the right breast mass (11 o'clock position) was performed. Pathology returned benign — fibroadenoma, with no evidence of malignancy.",
+      "severity": "info",
+      "values": null,
+      "provider": "Anil Patel, MD",
+      "source": {
+        "document_id": "d5_biopsy_2024_03",
+        "page": 1,
+        "snippet": "Pathology: Right breast mass, ultrasound-guided core needle biopsy. DIAGNOSIS: Fibroadenoma, no evidence of malignancy."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "4994f70a-4c45-421d-94b8-29c340aa69b4",
+      "date": "2024-04-03",
+      "date_text": "April 3, 2024",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Pathology confirmed: right breast fibroadenoma",
+      "summary": "Pathology from the March 28, 2024 core needle biopsy returned on April 3, 2024, confirming a fibroadenoma (a benign breast growth) with no evidence of malignancy.",
+      "severity": "info",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d6_obgyn_2024_05",
+        "page": 1,
+        "snippet": "Pathology returned on April 3, 2024 demonstrating a fibroadenoma with no evidence of malignancy."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "d18558f1-8cbf-4168-b1cd-3052331bcaae",
+      "date": "2024-05-02",
+      "date_text": "05/02/2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "OB/GYN follow-up — post benign biopsy debrief",
+      "summary": "Follow-up visit with Dr. Wu to discuss the benign (fibroadenoma) right breast biopsy result. Biopsy site was well-healed on exam; no new masses or lymphadenopathy found.",
+      "severity": "info",
+      "values": null,
+      "provider": "Karen Wu, MD",
+      "source": {
+        "document_id": "d6_obgyn_2024_05",
+        "page": 1,
+        "snippet": "Pt returns to discuss benign biopsy result. Reassured. Will resume routine annual screening mammogram."
+      },
+      "related_ids": []
+    }
+  ]
+}

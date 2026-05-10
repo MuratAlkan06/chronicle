@@ -199,12 +199,16 @@ export async function extractDoc(
 
   const validated: TimelineEvent[] = [];
   for (const raw of rawEvents) {
+    // Re-stamp `id` to a fresh UUID — the model emits colliding ids across docs
+    // (observed: 26 events, 17 unique ids in cycle-6 case1 extraction). React
+    // keys, Set-based dedup, related_ids cross-references, and the eval matcher
+    // all assume globally unique ids; we don't, so we generate them server-side.
     // Stamp document_id / page defaults BEFORE validating so the schema's
     // required source fields are always present.
     const candidate = withSourceOverrides(raw, docId);
     const parsed = TimelineEventSchema.safeParse(candidate);
     if (parsed.success) {
-      validated.push(parsed.data);
+      validated.push({ ...parsed.data, id: crypto.randomUUID() });
     } else {
       const id = (raw as { id?: unknown })?.id ?? "<unknown>";
       console.warn(

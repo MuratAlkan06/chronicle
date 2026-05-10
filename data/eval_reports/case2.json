@@ -1,0 +1,191 @@
+{
+  "caseId": "case2",
+  "tiers": {
+    "strict": {
+      "tier": "strict",
+      "tp": 7,
+      "fp": 9,
+      "fn": 1,
+      "precision": 0.4375,
+      "recall": 0.875,
+      "f1": 0.5833333333333334,
+      "n_gt": 8
+    },
+    "loose": {
+      "tier": "loose",
+      "tp": 7,
+      "fp": 9,
+      "fn": 1,
+      "precision": 0.4375,
+      "recall": 0.875,
+      "f1": 0.5833333333333334,
+      "n_gt": 8
+    }
+  },
+  "byEventType": {
+    "lab": {
+      "strict": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "n_gt": 0
+    },
+    "imaging": {
+      "strict": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 4,
+        "fn": 0,
+        "precision": 0.2,
+        "recall": 1,
+        "f1": 0.33333333333333337,
+        "n_gt": 1
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 1,
+        "fp": 4,
+        "fn": 0,
+        "precision": 0.2,
+        "recall": 1,
+        "f1": 0.33333333333333337,
+        "n_gt": 1
+      },
+      "n_gt": 1
+    },
+    "visit": {
+      "strict": {
+        "tier": "strict",
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.75,
+        "recall": 1,
+        "f1": 0.8571428571428571,
+        "n_gt": 3
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.75,
+        "recall": 1,
+        "f1": 0.8571428571428571,
+        "n_gt": 3
+      },
+      "n_gt": 3
+    },
+    "diagnosis": {
+      "strict": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 2,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 0,
+        "fp": 2,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "n_gt": 0
+    },
+    "medication": {
+      "strict": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "n_gt": 0
+    },
+    "procedure": {
+      "strict": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 2,
+        "fn": 1,
+        "precision": 0.3333333333333333,
+        "recall": 0.5,
+        "f1": 0.4,
+        "n_gt": 2
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 1,
+        "fp": 2,
+        "fn": 1,
+        "precision": 0.3333333333333333,
+        "recall": 0.5,
+        "f1": 0.4,
+        "n_gt": 2
+      },
+      "n_gt": 2
+    },
+    "referral": {
+      "strict": {
+        "tier": "strict",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "n_gt": 2
+      },
+      "loose": {
+        "tier": "loose",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "n_gt": 2
+      },
+      "n_gt": 2
+    }
+  },
+  "promptVersion": "system_extract_v1.md",
+  "promptHash": "dcce5db",
+  "generatedAt": "2026-05-10T09:41:30.351Z"
+}
