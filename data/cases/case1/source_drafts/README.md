@@ -1,32 +1,33 @@
 # Case 1 — Sarah Chen — source drafts → PDFs
 
-These markdown drafts are the *content* of the 7 PDFs for Case 1. They are NOT
-the PDFs themselves. To convert each draft to a PDF for `data/cases/case1/docs/`:
+Two file formats here for each of the 7 documents:
+- `dN_*.md` — the original markdown draft (for reading/reference)
+- `dN_*.html` — pre-cleaned, print-ready HTML (use this for PDF export)
 
-**Easiest path (Word):**
-1. Open the `.md` file. Each `--- PAGE N ---` marker = a new page.
-2. Copy the body text into Microsoft Word or Google Docs.
-3. Light formatting: bold the section headers (HPI, A&P, etc.), keep body text
-   plain. Insert a hard page break at each `--- PAGE N ---` marker. No need
-   to make it pretty — judges won't see the PDFs, only the extraction does.
-4. Export → PDF. Save as `dN_xxx.pdf` (filename must match `document_id` in
-   `MOCK_DATA.md` exactly: `d1_pcp_2023_01.pdf`, etc.).
-5. Drop into `data/cases/case1/docs/`.
+## Recommended workflow — Chrome print-to-PDF (~5 min total)
 
-**Alternate (Pages on macOS):** same flow, "Export To → PDF…".
+For each `.html` file:
+1. Double-click to open it in Chrome (or right-click → Open With → Chrome).
+2. `Cmd+P` to open the print dialog.
+3. **Destination:** "Save as PDF". **Layout:** Portrait. **Margins:** Default. **Paper size:** Letter.
+4. Save with the matching filename: `d1_pcp_2023_01.pdf`, `d2_lab_2023_04.pdf`, etc.
+5. Drop into the sibling `data/cases/case1/docs/` directory.
 
-**Verbatim-snippet rule (important):**
-Each draft contains lines marked `[SNIPPET — DO NOT EDIT]`. Those exact
-strings must appear in the PDF without paraphrase, capitalization changes, or
-whitespace edits — they are the ground-truth `source.snippet` values in
-`MOCK_DATA.md` and the model needs to find them via the Citations API.
-Everything else is filler text you can rephrase if you want.
+Page breaks, tables, headers, and the contradiction (metformin 1000 mg in d3 vs 850 mg in d5) are all baked in. Snippet markers from the markdown are already stripped — the snippet text itself remains verbatim (it's the ground-truth string the model needs to find via the Citations API).
 
-**Per-doc requirements (BUILD.md Block 3, Q22):**
-- ≥2 medical abbreviations per doc — the drafts already include these.
-- ≥1 date format inconsistency per doc (mix MM/DD/YYYY, DD-MMM-YYYY, long-form) — already woven in.
-- 1 cross-doc contradiction across the case — built into d3 vs d5
-  (metformin 1000 mg b.i.d. in May vs 850 mg b.i.d. in November).
+## Filename rule (must match `MOCK_DATA.md` exactly)
 
-Total: 7 PDFs × ~1–3 pages each. Should take ~30–45 min if you don't fuss
-with formatting.
+```
+data/cases/case1/docs/
+├── d1_pcp_2023_01.pdf
+├── d2_lab_2023_04.pdf
+├── d3_pcp_2023_05.pdf
+├── d4_lab_2023_08.pdf
+├── d5_pcp_2023_11.pdf
+├── d6_lab_2024_04.pdf
+└── d7_pcp_2024_07.pdf
+```
+
+## If you'd rather use Google Docs instead
+
+Open the `.html` in Chrome → `Cmd+A` → `Cmd+C` → paste into a new Google Doc → File → Download → PDF Document. Page-break CSS doesn't survive paste, so you'll need to insert hard page breaks (`Cmd+Enter`) manually at the spots where new sections start. Slower than the print-to-PDF route.
