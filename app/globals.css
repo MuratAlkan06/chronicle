@@ -54,27 +54,43 @@
   --color-sev-monitor: #D97706;
   --color-sev-concerning: #DC2626;
   --color-sev-urgent: #991B1B;
+
+  /* Chronicle base palette — locked per docs/FRONTEND-STANDARDS.md §H.1.
+     Do NOT replace with shadcn defaults. Tailwind utilities derive from
+     these (e.g. bg-base, bg-surface, text-ink, border-line). */
+  --color-base: #FAFAF7;
+  --color-surface: #FFFFFF;
+  --color-line: #E5E5E0;
+  --color-ink: #0A0A0A;
+  --color-ink-muted: #6B6B6B;
+  --color-ink-subtle: #9A9A95;
+  --color-accent-teal: #0F766E;
+  --color-snippet: #FEF08A;
+
+  --font-serif: var(--font-source-serif);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Aligned with Chronicle locked tokens (FRONTEND-STANDARDS.md §H.1).
+     shadcn primitives inherit these vars so they don't bleed defaults. */
+  --background: #FAFAF7;
+  --foreground: #0A0A0A;
+  --card: #FFFFFF;
+  --card-foreground: #0A0A0A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A0A0A;
+  --primary: #0F766E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F0;
+  --secondary-foreground: #0A0A0A;
+  --muted: #F5F5F0;
+  --muted-foreground: #6B6B6B;
+  --accent: #0F766E;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --border: #E5E5E0;
+  --input: #E5E5E0;
+  --ring: #0F766E;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
