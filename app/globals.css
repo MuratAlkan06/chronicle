@@ -152,3 +152,24 @@
     @apply font-sans;
   }
 }
+
+/* Chronicle landing — subtle SVG fractal noise overlay (3% opacity) for
+   tactile depth without color shift. Fixed-position so it doesn't scroll;
+   pointer-events-none so it never intercepts. Different scale (1px) than
+   the hero's 28px dot grid so they don't moiré. */
+.chronicle-noise {
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  opacity: 0.045;
+}
+
+/* Soft horizontal gradient divider (allowed by FRONTEND-STANDARDS §H.1). */
+.chronicle-soft-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-line) 50%,
+    transparent 100%
+  );
+}
