@@ -1,0 +1,202 @@
+# Chronicle — Frontend Execution Standards
+
+Binding for all frontend surfaces (`/`, `/app`, `/eval`). Overrides default agent behavior and Magic MCP generation defaults.
+
+This file is read at the start of every frontend session cycle.
+
+---
+
+## H.1 — Aesthetic direction (locked)
+
+Reference targets (caliber): Linear, Vercel, Things 3, Anthropic homepage. Restraint with visual presence — minimal but not empty.
+
+**Anti-references (forbidden):**
+- Consumer healthtech: bright blue, friendly gradients, illustrations of doctors / patients / hospitals / pills / stethoscopes
+- SaaS marketing: purple-to-blue gradients, glassmorphism, particle effects, animated gradient backgrounds
+- Startup landing tropes: testimonials, pricing tables, logo bars, FAQ sections, team grids, newsletter signup
+
+**Tone: "calm clinical."** A tool a careful doctor would use, not a consumer app. When agents face tension between "make this more impressive" and "keep this calm clinical," calm clinical wins.
+
+### Locked design tokens
+
+Do not deviate. Do not let Magic-generated components override.
+
+| Role | Token | Hex |
+|---|---|---|
+| Background base | `bg-base` | `#FAFAF7` (off-white) |
+| Surface | `bg-surface` | `#FFFFFF` |
+| Border | `border-default` | `#E5E5E0` |
+| Text primary | `text-primary` | `#0A0A0A` |
+| Text secondary | `text-secondary` | `#6B6B6B` |
+| Text tertiary | `text-tertiary` | `#9A9A95` |
+| Accent (CTAs only, sparingly) | `accent` | `#0F766E` (teal) |
+| Severity — info | `sev-info` | `#6B7280` (slate) |
+| Severity — monitor | `sev-monitor` | `#D97706` (amber) |
+| Severity — concerning | `sev-concerning` | `#DC2626` (red) |
+| Severity — urgent | `sev-urgent` | `#991B1B` (dark red) |
+| Source-snippet highlight | `snippet-highlight` | `#FEF08A` at 60% opacity |
+
+**Severity tokens supersede RESOLVED-DECISIONS.md #3.** The earlier stone-400 / amber-400 / orange-600 / red-600 palette is no longer current. The H10 colorblind sim check from RESOLVED-DECISIONS.md #3 still applies but to the new palette — specifically, verify that concerning `#DC2626` and urgent `#991B1B` (both reds) remain distinguishable under deuteranopia and protanopia. If they don't, **adjust the urgent token only** (e.g., `#7F1D1D` for more lightness gap). Do not touch the other three.
+
+### Typography
+
+- **Inter** for everything (body, UI, buttons)
+- **"Chronicle" wordmark in Source Serif Pro at 22px** (the only serif use anywhere)
+- No other fonts
+
+### Visual texture (allowed only these)
+
+- Faint dot grid in landing hero: 1px dots, `#E5E5E0`, 24px spacing, radial-mask fade at edges
+- Soft horizontal gradient dividers between landing sections
+- Subtle teal radial glow under landing hero product preview
+
+---
+
+## H.2 — Tooling strategy (locked)
+
+### Component sourcing order
+
+1. **Magic MCP (`/ui` command)** is the first stop for any new section or non-trivial component. Generated components MUST be adapted to the locked design tokens before merging — strip any colors, fonts, or effects not in the token list.
+2. **shadcn/ui primitives** for atomic elements (Button, Card, Sheet, Dialog).
+3. **Hand-written** only when (1) and (2) don't fit.
+
+### Documentation-first for non-trivial APIs
+
+**Context7 MCP** is the source of truth for `framer-motion`, `shadcn/ui`, Tailwind, Next.js App Router, and `lucide-react` APIs. Agents must consult Context7 before writing non-trivial framer-motion or shadcn code; do not rely on training-data API memory.
+
+### Magic MCP usage rules
+
+- One `/ui` call per section maximum. If the first generation is wrong aesthetic, re-prompt with stricter constraints; do not iterate beyond two attempts per section.
+- Every Magic-generated component is reviewed against locked tokens before merging. Common adaptations:
+  - Replace gradient backgrounds with solid tokens
+  - Replace purple/blue accents with `accent` (teal-700)
+  - Replace serif/display fonts with Inter
+  - Remove glassmorphism
+- **Generations are metered. Budget: 10 ceiling, 8 soft target across the whole build.** One re-prompt headroom for two sections that come out wrong.
+
+---
+
+## H.3 — Animation budget (locked)
+
+### Reduced-motion respect (mandatory)
+
+All framer-motion animations must be wrapped in `useReducedMotion()` check. If `prefers-reduced-motion` is set, **skip entrance animations and the loop pulse**. Hover states remain (they're discrete user-initiated interactions, not autonomous motion).
+
+```tsx
+const shouldReduceMotion = useReducedMotion();
+const initial = shouldReduceMotion ? false : { opacity: 0, y: 20 };
+const animate = shouldReduceMotion ? false : { opacity: 1, y: 0 };
+```
+
+### Permitted motion
+
+#### 1. Scroll-triggered entrance (one-shot per element)
+
+- Trigger: framer-motion `whileInView` with `viewport={{ once: true, margin: "-100px" }}`
+- Initial: `{ opacity: 0, y: 20 }` → animate to `{ opacity: 1, y: 0 }`
+- Duration 600ms, easing `cubic-bezier(0.16, 1, 0.3, 1)`
+- Stagger sibling elements by 100ms
+
+#### 2. Hero initial-load cascade (page mount, landing only)
+
+- Headline: immediate
+- Subhead: +150ms
+- CTA: +300ms
+- Product preview: +500ms with 800ms duration
+
+#### 3. ONE looping animation, scoped to the landing hero product preview only
+
+- Yellow source-snippet highlight pulses: fade 0 → 60% opacity over 1.5s, hold 2s, fade out 1s, pause 0.5s, repeat infinitely
+- Implemented as a **positioned absolute CSS overlay on top of the static hero screenshot**, NOT as a re-rendered live component
+- This is the only continuous animation on any surface
+
+#### 4. Hover states on interactive elements
+
+- Buttons: subtle background-color shift, 150ms ease-out
+- Cards: shadow grows softly, border darkens slightly, card lifts 1px (CSS `translateY(-1px)` only, no transform-scale)
+- No transform-scale, no rotation, no gradient shifts
+
+### Forbidden motion
+
+- Scroll-triggered parallax / rotation
+- Autoplaying carousels / marquees / video
+- Continuous gradient animation
+- Spring physics on entrance (use the cubic-bezier easing above)
+- Motion that draws attention without conveying information
+
+---
+
+# I. Landing page spec (`/`)
+
+Public landing page at root. Five vertically stacked sections, scrollable, single page. Routes to `/app` via Get Started CTA. Aesthetic, tokens, and animation governed by Section H above.
+
+The landing page exists for non-demo audiences: Devpost screenshots, judges revisiting the table, post-event portfolio. **Demo flow opens on `/app`, not `/`.**
+
+## Section 1 — Hero (full viewport)
+
+- **Top nav:** "Chronicle" wordmark (Source Serif Pro, 22px, `text-primary`) on the left. Nothing on the right.
+- **Centered headline** (Display 64px Bold `text-primary`):
+  > Your medical records, on one timeline.
+- **Subhead** (Body Large 22px Regular `text-secondary`):
+  > Patients have 30 documents from 5 doctors. Chronicle ties them together.
+- **Primary CTA:** "Get started" (`accent` background, white text, 14px vertical / 32px horizontal padding, 8px radius). Routes to `/app` via `next/link`.
+- **Below CTA:** dominant product preview, ~1100px wide.
+  - **Real screenshot of `/app`** with Sarah Chen loaded + side panel open + snippet highlighted, captured at H10/H11 polish.
+  - **Until that screenshot exists**, use a placeholder `placeholder-hero.png` (any 16:10 light-toned image of similar dimensions). Mark with a TODO comment.
+  - Soft teal-tinted radial glow underneath (large blurred circle at low opacity).
+  - Layered shadow: `0 10px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)`.
+  - **Yellow source-snippet highlight pulses on the loop spec'd in H.3** — implement as a positioned absolute CSS overlay on top of the screenshot, NOT as a re-rendered live component.
+- **Background:** `bg-base` with the dot-grid texture from H.1.
+
+## Section 2 — Problem framing
+
+- **Heading:** "Your records are everywhere." (H1 44px Bold)
+- **Three stat cards horizontally:**
+  - **30+** — "documents per patient with a chronic condition"
+  - **5** — "different healthcare providers"
+  - **0** — "places that tie them together"
+  - Big number in `accent` (teal-700), label below in `text-secondary`
+- **Caption below cards** (Body 16px Regular `text-secondary`):
+  > Patients managing chronic conditions often have 30+ documents from multiple providers. Chronicle ties them together.
+- **Background:** `bg-surface` (`#FFFFFF`).
+
+## Section 3 — How it works
+
+- **Heading:** "Three steps." (H1 44px Bold)
+- **Three columns:** Drop / Read / See
+- **Each column:**
+  - lucide line icon (48px, `accent` teal)
+  - Heading (H3 24px Semibold)
+  - 2-3 line description (Body 16px Regular `text-secondary`)
+- **Suggested icons:**
+  - Drop: `Upload` or `FileUp`
+  - Read: `ScanText` or `Eye`
+  - See: `LineChart` or `Clock`
+- **Background:** `#F5F5F0` (slightly darker off-white for rhythm).
+
+## Section 4 — Trust
+
+- **Two-column layout.**
+- **Left:**
+  - Eyebrow "TRACEABLE" (12px Medium Uppercase `accent` teal, letter-spacing 1.5px)
+  - Heading "Every claim, traceable." (H2 32px Bold)
+  - Body explaining verbatim source attribution (Body 16px Regular `text-secondary`)
+- **Right:**
+  - Large mockup of the click-source side panel
+  - Paper-textured PDF page (subtle horizontal text-row simulation)
+  - Yellow-highlighted snippet (`snippet-highlight` token, `#FEF08A` at 60% opacity)
+  - Below the PDF mock: an expanded "What does this mean?" card with two lines of placeholder patient-friendly text
+- **Background:** `bg-surface` (`#FFFFFF`).
+
+## Section 5 — Final CTA + footer
+
+- **Heading:** "See your records in a new light." (H1 44px Bold)
+- **Primary CTA "Get started"** (routes to `/app`).
+- **Footer** (thin top border `border-default`, 60px tall):
+  > Built at HackDavis 2026 · Murat Alkan · github.com/muratalkan06
+- Footer text: Body Small 14px `text-secondary`, centered.
+- **Background:** `bg-base`.
+
+## Out of scope for landing
+
+Testimonials, pricing, FAQ, team section, logo bar, animated gradient backgrounds, glassmorphism, scroll-triggered choreography or parallax, autoplaying video, illustrations of doctors / patients / hospitals.
