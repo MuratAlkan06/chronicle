@@ -233,6 +233,17 @@ function ProductPreview() {
 // real H10/H11 screenshot lands.
 function AppMockup() {
   type Severity = "info" | "monitor" | "concerning";
+  const reduce = useReducedMotion();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(rootRef, { once: true, margin: "-50px" });
+  // After all events stagger in, flip the active card's "selected" treatment.
+  const [settled, setSettled] = useState(reduce ?? false);
+  useEffect(() => {
+    if (!inView || reduce) return;
+    const t = setTimeout(() => setSettled(true), 2700);
+    return () => clearTimeout(t);
+  }, [inView, reduce]);
+
   const events: Array<{
     date: string;
     type: string;
@@ -280,7 +291,7 @@ function AppMockup() {
   ];
 
   return (
-    <div className="grid grid-cols-12 bg-base">
+    <div ref={rootRef} className="grid grid-cols-12 bg-base">
       {/* Left: timeline list */}
       <div className="col-span-7 border-r border-line bg-base p-5">
         <div className="flex items-baseline justify-between">
@@ -291,10 +302,23 @@ function AppMockup() {
         </div>
         <ul className="mt-4 space-y-2">
           {events.map((e, i) => (
-            <li
+            <motion.li
               key={i}
-              className={`relative flex items-start gap-3 overflow-hidden rounded-md border px-3.5 py-2.5 ${
-                e.active
+              initial={reduce ? false : { opacity: 0, y: 8 }}
+              animate={
+                reduce
+                  ? false
+                  : inView
+                    ? { opacity: 1, y: 0 }
+                    : { opacity: 0, y: 8 }
+              }
+              transition={{
+                duration: 0.45,
+                delay: reduce ? 0 : i * 0.32,
+                ease: EASE,
+              }}
+              className={`relative flex items-start gap-3 overflow-hidden rounded-md border px-3.5 py-2.5 transition-colors duration-300 ${
+                e.active && settled
                   ? "border-accent-teal/40 bg-accent-teal/[0.04]"
                   : "border-line bg-surface"
               }`}
@@ -327,7 +351,7 @@ function AppMockup() {
                   {e.title}
                 </p>
               </div>
-            </li>
+            </motion.li>
           ))}
         </ul>
       </div>
@@ -817,6 +841,7 @@ function TraceStage({
 }
 
 function ConnectorArrow({ caption }: { caption: string }) {
+  const reduce = useReducedMotion();
   return (
     <div className="hidden flex-col items-center justify-center md:flex">
       <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-subtle">
@@ -829,7 +854,8 @@ function ConnectorArrow({ caption }: { caption: string }) {
         className="mt-2 text-line"
         aria-hidden
       >
-        <line
+        {/* Draw-on dashed line, then fade-in arrowhead. */}
+        <motion.line
           x1="0"
           y1="7"
           x2="68"
@@ -837,11 +863,18 @@ function ConnectorArrow({ caption }: { caption: string }) {
           stroke="currentColor"
           strokeWidth="1"
           strokeDasharray="3 3"
+          initial={reduce ? false : { pathLength: 0 }}
+          whileInView={reduce ? undefined : { pathLength: 1 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.7, ease: EASE }}
         />
-        <path
+        <motion.path
           d="M 68 2 L 76 7 L 68 12 Z"
           fill="currentColor"
-          opacity="0.6"
+          initial={reduce ? false : { opacity: 0 }}
+          whileInView={reduce ? undefined : { opacity: 0.6 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.3, delay: 0.65, ease: EASE }}
         />
       </svg>
     </div>
