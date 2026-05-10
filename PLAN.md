@@ -20,7 +20,7 @@ This file is the index + the canonical locked decision register. Operational del
 | Backend standards (response shape, error envelope, streaming protocol) | [docs/BACKEND-STANDARDS.md](docs/BACKEND-STANDARDS.md) |
 | The 3 patient cases — narrative arcs, doc mix, abbreviation list, contradiction examples, file naming, sanity-check questions | [docs/CASES.md](docs/CASES.md) |
 | Stack rationale, data flows (upload+SSE / click-to-source / `/eval`), API endpoint signatures, full annotated repo tree, files manifest | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| The Claude system prompt, tool schema, few-shot strategy, prompt-caching breakpoints | [docs/extraction-prompt-v1.md](docs/extraction-prompt-v1.md) — will move to `prompts/system_extract_v1.md` at H0 Block 6 |
+| The Claude system prompt, tool schema, few-shot strategy, prompt-caching breakpoints | [prompts/system_extract_v1.md](prompts/system_extract_v1.md) (as-built; supersedes [docs/extraction-prompt-v1.md](docs/extraction-prompt-v1.md) which is preserved as historical) |
 | Case 3 labeling protocol, matching algorithm pseudocode, `/api/eval` flow, prompt iteration discipline | [docs/EVAL.md](docs/EVAL.md) |
 | Demo flow (4 beats with timing + narration), hour-by-hour build plan (pre-H0 + H0→H12), top-5 risk register | [docs/BUILD.md](docs/BUILD.md) |
 | The 7 small decisions, locked with rationale + refinements (paper trail) | [docs/RESOLVED-DECISIONS.md](docs/RESOLVED-DECISIONS.md) |
@@ -100,7 +100,7 @@ Chronicle is a drag-and-drop tool for medical document timelines. Patients drop 
 
 | Q | Decision |
 |---|----------|
-| Q1 | **YES** — Claude native PDF document blocks + Citations API. Skip a separate text-extraction layer entirely. `cited_text` is source-of-truth for `source.snippet`. Verify the API surface on docs.claude.com / docs.anthropic.com pre-H0. |
+| Q1 | **AMENDED post Block 5b verification (2026-05-09):** Claude native PDF document blocks — YES. Citations API — DROPPED. Empirical test on `data/cases/case1/docs/d1_pcp_2023_01.pdf` (Sonnet 4.6, both `tool_choice: tool` and `auto`) showed citations do NOT attach when the model is forced to a tool, and `auto` mode produces a narrative text block without citations either. Taking BUILD.md Risk 1 worst-case fallback (line 313, pre-authorized): model emits `source.snippet` inside the `emit_events` tool input, and `lib/match.ts` sliding-window-validates against the PDF text-layer. Wedge feature (click-to-source highlight) preserved. Repro script: `scripts/verify-citations.py`. See [docs/RESOLVED-DECISIONS.md §8](docs/RESOLVED-DECISIONS.md). |
 | Q2 | **Single Next.js (TypeScript)** full-stack. App Router route handlers for `/api/extract`, `/api/explain`, `/api/related`, `/api/eval`. No FastAPI. |
 | Q3 | **Voyage `voyage-3`** embeddings over HTTP from Next.js. No Python. Fallback: OpenAI `text-embedding-3-small`. |
 | Q4 | **Stream** via SSE / `ReadableStream`. Per-document parallel calls with `Promise.all` on the backend; events streamed to the UI as each doc completes. |
@@ -258,7 +258,7 @@ Q9 (panel doesn't reflow timeline) + Q11 (no drawer) + Q24 (desktop-only demo) m
 
 ## Open items / verify before H0
 
-- [ ] Verify Citations API surface on docs.claude.com / docs.anthropic.com — confirm response shape (`cited_text`, `start_page_number` per text block), confirm prompt-caching syntax with PDF document blocks. Three URLs at top of [docs/extraction-prompt-v1.md](docs/extraction-prompt-v1.md).
+- [x] Verify Citations API surface — DONE (Block 5b, 2026-05-09). Result: citations do NOT attach to text blocks when forced-tool flow is used; `auto` mode also did not attach. Took BUILD.md Risk 1 worst-case fallback (no Citations API). See PLAN.md Q1 (amended) + scripts/verify-citations.py + prompts/system_extract_v1.md preamble + docs/RESOLVED-DECISIONS.md §8.
 - [ ] Voyage API key procured (or OpenAI `text-embedding-3-small` key as fallback).
 - [ ] Gemini API key procured (or commit to Haiku 4.5 explainer per Q26 fallback).
 - [ ] Case 3 PDFs written and locked. Case 3 ground-truth labels written and committed to `held_out/case3/` (protocol in [docs/EVAL.md](docs/EVAL.md)).
