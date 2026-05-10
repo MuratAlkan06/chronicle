@@ -9,6 +9,8 @@
  * PDF text. See prompts/system_extract_v1.md preamble for empirical evidence.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   EXTRACT_EVENTS_TOOL,
   TimelineEventSchema,
@@ -91,10 +93,15 @@ For non-lab events with multiple measurements (e.g., a visit with vitals), leave
 Call the \`emit_events\` tool exactly once with the full events array. Do NOT emit any text blocks — the response should contain only the single tool_use block.
 `;
 
-// Few-shot block intentionally empty for now (Block 4 not yet built).
-// The cache_control marker still lives on this element — when few-shot
-// lands, no plumbing changes are needed.
-const FEW_SHOT_BLOCK = "";
+// Few-shot block — loaded once at module init from prompts/few_shot.md.
+// Two multi-event examples covering all 7 event_type values (per
+// docs/RESOLVED-DECISIONS.md §4 and §8). Read at module load (not per
+// call) so the prompt-cache key stays stable across invocations and a
+// single bundled lib/ folder is self-contained at runtime.
+const FEW_SHOT_BLOCK = readFileSync(
+  join(process.cwd(), "prompts", "few_shot.md"),
+  "utf8",
+);
 
 const USER_TPL = (filename: string, docId: string) =>
   `Document filename: ${filename}
