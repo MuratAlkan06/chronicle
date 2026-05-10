@@ -50,8 +50,8 @@ export function Timeline({ events, selectedId, onSelect }: TimelineProps) {
           initial={reduce ? false : { pathLength: 0 }}
           animate={reduce ? false : { pathLength: 1 }}
           transition={{
-            duration: 1.2,
-            ease: [0.22, 0.61, 0.36, 1],
+            duration: 2.6,
+            ease: [0.4, 0.0, 0.2, 1],
           }}
         />
       </svg>
