@@ -76,9 +76,9 @@ function listPdfs(docsDir: string): string[] {
 }
 
 function promptHashShort(): string {
-  // First 7 chars of `git hash-object prompts/system_extract_v1.md`.
+  // First 7 chars of `git hash-object prompts/system_extract_v4.md`.
   // Mirrors the convention already in EVAL.md / BUILD.md H7 ("prompt git hash logged").
-  const out = execFileSync("git", ["hash-object", "prompts/system_extract_v1.md"], {
+  const out = execFileSync("git", ["hash-object", "prompts/system_extract_v4.md"], {
     encoding: "utf8",
   }).trim();
   return out.slice(0, 7);

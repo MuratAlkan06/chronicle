@@ -66,7 +66,7 @@ function isCaseId(s: string): s is CaseId {
 function promptHashShort(): string {
   const out = execFileSync(
     "git",
-    ["hash-object", "prompts/system_extract_v1.md"],
+    ["hash-object", "prompts/system_extract_v4.md"],
     { encoding: "utf8" },
   ).trim();
   return out.slice(0, 7);
@@ -157,7 +157,7 @@ async function runOne(caseId: CaseId): Promise<PerCaseOutcome> {
     caseId,
     tiers: { strict, loose },
     byEventType,
-    promptVersion: "system_extract_v1.md",
+    promptVersion: "system_extract_v4.md",
     promptHash: promptHashShort(),
     generatedAt: new Date().toISOString(),
   };
@@ -189,7 +189,7 @@ function appendChangelog(outcomes: PerCaseOutcome[]): void {
   // optimistic ceiling and not what we iterate against).
   const c1str = c1 ? `C1: ${fmtPR(c1.strict)}` : "C1: skipped";
   const c2str = c2 ? `C2: ${fmtPR(c2.strict)}` : "C2: skipped";
-  const entry = `v1 | ${iso} | ${hash7} | regen | ${c1str} | ${c2str}\n`;
+  const entry = `v4 | ${iso} | ${hash7} | inlined per-type Title format spec for the 6 non-visit event types (closes audit-trail divergence) | ${c1str} | ${c2str}\n`;
 
   if (!existsSync(path)) {
     writeFileSync(path, `# Prompt iteration log\n\n${entry}`, "utf8");

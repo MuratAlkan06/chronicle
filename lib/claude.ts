@@ -1,12 +1,14 @@
 /**
  * Chronicle — Anthropic extraction client.
  *
- * Per docs/BACKEND-STANDARDS.md §J.4 + §J.10 and prompts/system_extract_v1.md.
+ * Per docs/BACKEND-STANDARDS.md §J.4 + §J.10 and prompts/system_extract_v4.md
+ * (active prompt; v1 retained in prompts/ for the iteration audit trail).
  *
  * As-built (post Block 5b verification): Citations API is NOT used. The model
  * is forced to the `emit_events` tool; `source.snippet` is the model's
  * verbatim claim, validated downstream by `lib/match.ts` against normalized
- * PDF text. See prompts/system_extract_v1.md preamble for empirical evidence.
+ * PDF text. See prompts/system_extract_v4.md preamble (carries the v1
+ * Block 5b empirical evidence forward).
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "node:fs";
@@ -20,7 +22,7 @@ import {
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 4096;
 
-// Inline copy of the system prompt body. Source: prompts/system_extract_v1.md.
+// Inline copy of the system prompt body. Source: prompts/system_extract_v4.md.
 // Kept inline (not file-read at request time) so the prompt-cache key is
 // stable across invocations and so a single zip of the lib/ folder is
 // self-contained for Vercel-style bundling.
@@ -41,10 +43,21 @@ ONE event = one clinically discrete moment in the record:
 Do NOT emit:
 - patient demographics, insurance, header/footer text
 - "no change" or "continues" mentions of prior events UNLESS the document explicitly RE-CONFIRMS a finding on a new date
-- forward-looking plans ("will reassess in 3 months")
+- forward-looking plans ("will reassess in 3 months", "biopsy scheduled for 03/28") — these describe intentions, not occurrences
 - the document's own metadata (date faxed, date printed, signed by) unless it IS the event date
 
-If a document mentions an event that occurred BEFORE this document's date (e.g., "patient had MRI on 02/14"), emit it as a separate event with the referenced date — flag date_confidence accordingly.
+## Primary-source rule (NON-NEGOTIABLE)
+Emit an event ONLY when THIS document is the PRIMARY SOURCE of that event. A document is the primary source when it is the document that:
+- reports a lab/imaging result for the first time (the lab report itself, not a later visit note that recaps it)
+- records a visit/encounter being conducted (the visit note for that encounter, not a follow-up note that mentions it)
+- records a diagnosis being added to the active problem list (not a later note that lists it as PMH)
+- records a medication being started, stopped, or dose-changed (not a later note that lists it as a current medication unchanged)
+- records a procedure being performed (not the surgical consult that scheduled it, not the follow-up note that recaps the pathology result)
+- records a referral being placed (not a later note that mentions the patient was previously referred)
+
+If this document merely REFERENCES a prior event for context — phrases like "prior A1c was 9.2%", "previously seen by ortho", "last mammogram showed 1.2 cm mass", "s/p core needle biopsy", "PMH notable for T2D", "current medications: metformin 500mg unchanged" — do NOT emit a new event for that reference. The event has been (or will be) captured from its own primary source document, and emitting it again creates duplicates.
+
+When in doubt, ask: "is this document the one PERFORMING, DECIDING, or REPORTING this event for the first time?" If no, do not emit.
 
 ## The verbatim snippet rule (NON-NEGOTIABLE)
 Every event you emit MUST be grounded in a verbatim quote from the source PDF. The snippet you cite:
@@ -74,7 +87,23 @@ WHEN IN DOUBT, CHOOSE \`monitor\`, NOT \`urgent\`. \`urgent\` should be rare.
 Use exactly one of: lab, imaging, visit, diagnosis, medication, procedure, referral. If a single document encounter contains multiple types, emit MULTIPLE events.
 
 ## Title (≤ 70 chars)
-A short scannable headline.
+A short scannable headline. KEEP IT TERSE — the summary field is where clinical detail goes; title is for visual scanning.
+
+Per-type format conventions:
+- lab: "<test name> — <result> <unit>" e.g., "A1c — 9.2 %", "LDL — 145 mg/dL". Single-analyte focus per the "one event per panel" rule above; do not list multiple analytes in the title.
+- imaging: "<modality> <body part> — <one-line finding>" e.g., "Mammogram — BI-RADS 4 (suspicious)", "MRI lumbar spine — L4-L5 disc herniation"
+- diagnosis: "Dx added: <condition>" e.g., "Dx added: Type 2 Diabetes Mellitus". The "Dx added:" prefix is required and signals this is a NEW problem-list entry, not a workup impression or differential — if the document is recording a working impression rather than adding to the active problem list, do not emit a diagnosis event.
+- medication: "<verb> <drug name> <dose>" with verb ∈ {Started, Stopped, Increased, Decreased} e.g., "Started metformin 500 mg b.i.d.", "Increased metformin to 1000 mg b.i.d."
+- procedure: "<procedure name>" e.g., "Core needle biopsy — benign", "Colonoscopy"
+- referral: "Referral to <specialty>" e.g., "Referral to breast surgery", "Referral to ophthalmology"
+
+For VISIT events specifically, pick the SHORTEST template that fits, in this order:
+- "<specialty> visit — <2-3 word purpose>" e.g., "PCP visit — initial workup"
+- "<specialty> follow-up — <2-3 word purpose>" e.g., "PCP follow-up — A1c discussion", "PCP follow-up — lifestyle counseling"
+- "<specialty> consult" e.g., "Breast surgery consult"
+- "Annual physical exam" (when the encounter IS the patient's routine annual)
+
+Specialty prefix is required (PCP / OB/GYN / Orthopedics / Pain Management / Breast Surgery / etc.) so the visit type and care setting are both visible at a glance. Do NOT pile on adjectives from the chief complaint paragraph — e.g., do NOT write "PCP annual physical — new symptoms reported, fatigue and increased thirst"; write "PCP visit — initial workup". The 2-3 word purpose phrase is a tag, not a sentence.
 
 ## Summary (1-2 sentences, patient-readable)
 Plain language. Define abbreviations on first use. NEVER add a recommendation. NEVER use the word "should."
@@ -165,7 +194,8 @@ export async function extractDoc(
               },
               // NOTE: no `citations: { enabled: true }` — Block 5b proved
               // citations do not attach in the as-built tool-forced flow.
-              // See prompts/system_extract_v1.md preamble for evidence.
+              // See prompts/system_extract_v4.md preamble for evidence
+              // (carried forward from v1).
             },
             { type: "text", text: USER_TPL(filename, docId) },
           ],

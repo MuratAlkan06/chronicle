@@ -3,22 +3,22 @@
   "tiers": {
     "strict": {
       "tier": "strict",
-      "tp": 10,
-      "fp": 15,
-      "fn": 3,
-      "precision": 0.4,
-      "recall": 0.7692307692307693,
-      "f1": 0.5263157894736842,
+      "tp": 12,
+      "fp": 6,
+      "fn": 1,
+      "precision": 0.6666666666666666,
+      "recall": 0.9230769230769231,
+      "f1": 0.7741935483870968,
       "n_gt": 13
     },
     "loose": {
       "tier": "loose",
-      "tp": 10,
-      "fp": 15,
-      "fn": 3,
-      "precision": 0.4,
-      "recall": 0.7692307692307693,
-      "f1": 0.5263157894736842,
+      "tp": 12,
+      "fp": 6,
+      "fn": 1,
+      "precision": 0.6666666666666666,
+      "recall": 0.9230769230769231,
+      "f1": 0.7741935483870968,
       "n_gt": 13
     }
   },
@@ -27,21 +27,21 @@
       "strict": {
         "tier": "strict",
         "tp": 5,
-        "fp": 8,
+        "fp": 3,
         "fn": 0,
-        "precision": 0.38461538461538464,
+        "precision": 0.625,
         "recall": 1,
-        "f1": 0.5555555555555556,
+        "f1": 0.7692307692307693,
         "n_gt": 5
       },
       "loose": {
         "tier": "loose",
         "tp": 5,
-        "fp": 8,
+        "fp": 3,
         "fn": 0,
-        "precision": 0.38461538461538464,
+        "precision": 0.625,
         "recall": 1,
-        "f1": 0.5555555555555556,
+        "f1": 0.7692307692307693,
         "n_gt": 5
       },
       "n_gt": 5
@@ -72,22 +72,22 @@
     "visit": {
       "strict": {
         "tier": "strict",
-        "tp": 1,
-        "fp": 3,
-        "fn": 3,
-        "precision": 0.25,
-        "recall": 0.25,
-        "f1": 0.25,
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
         "n_gt": 4
       },
       "loose": {
         "tier": "loose",
-        "tp": 1,
-        "fp": 3,
-        "fn": 3,
-        "precision": 0.25,
-        "recall": 0.25,
-        "f1": 0.25,
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
         "n_gt": 4
       },
       "n_gt": 4
@@ -96,21 +96,21 @@
       "strict": {
         "tier": "strict",
         "tp": 1,
-        "fp": 1,
+        "fp": 0,
         "fn": 0,
-        "precision": 0.5,
+        "precision": 1,
         "recall": 1,
-        "f1": 0.6666666666666666,
+        "f1": 1,
         "n_gt": 1
       },
       "loose": {
         "tier": "loose",
         "tp": 1,
-        "fp": 1,
+        "fp": 0,
         "fn": 0,
-        "precision": 0.5,
+        "precision": 1,
         "recall": 1,
-        "f1": 0.6666666666666666,
+        "f1": 1,
         "n_gt": 1
       },
       "n_gt": 1
@@ -118,22 +118,22 @@
     "medication": {
       "strict": {
         "tier": "strict",
-        "tp": 3,
+        "tp": 2,
         "fp": 0,
-        "fn": 0,
+        "fn": 1,
         "precision": 1,
-        "recall": 1,
-        "f1": 1,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
         "n_gt": 3
       },
       "loose": {
         "tier": "loose",
-        "tp": 3,
+        "tp": 2,
         "fp": 0,
-        "fn": 0,
+        "fn": 1,
         "precision": 1,
-        "recall": 1,
-        "f1": 1,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
         "n_gt": 3
       },
       "n_gt": 3
@@ -185,7 +185,7 @@
       "n_gt": 0
     }
   },
-  "promptVersion": "system_extract_v1.md",
-  "promptHash": "dcce5db",
-  "generatedAt": "2026-05-10T09:41:30.346Z"
+  "promptVersion": "system_extract_v4.md",
+  "promptHash": "f32ebd0",
+  "generatedAt": "2026-05-10T13:49:58.007Z"
 }

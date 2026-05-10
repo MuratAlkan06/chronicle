@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-10T09:41:27.296Z",
+  "generatedAt": "2026-05-10T13:49:55.068Z",
   "modelVersion": "claude-sonnet-4-6",
-  "promptHash": "dcce5db",
+  "promptHash": "f32ebd0",
   "caseId": "case2",
   "docCount": 6,
-  "eventCount": 16
+  "eventCount": 8
 }

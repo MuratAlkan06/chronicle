@@ -1,0 +1,32 @@
+{
+  "_placeholder": true,
+  "_note": "PLACEHOLDER — not real Case 3 metrics. Overwrite at H11 with the actual live-run output (events array + tier metrics + breakdown). The Cmd+Shift+L hotkey on /eval reads this file and renders it as a cached result; if `_placeholder: true` is still present at demo time, the hotkey path is broken. See BUILD.md H10→H11 'Save the final live result to data/case3_eval_fallback.json as the hotkey backup.'",
+  "caseId": "case3",
+  "events": [],
+  "tiers": {
+    "strict": {
+      "tier": "strict",
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "n_gt": 0
+    },
+    "loose": {
+      "tier": "loose",
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "n_gt": 0
+    }
+  },
+  "byEventType": {},
+  "promptVersion": "REPLACE_AT_H11",
+  "promptHash": "REPLACE_AT_H11",
+  "generatedAt": "REPLACE_AT_H11"
+}
