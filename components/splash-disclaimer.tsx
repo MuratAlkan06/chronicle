@@ -56,7 +56,7 @@ export function SplashDisclaimer() {
           <button
             type="button"
             onClick={dismiss}
-            className="rounded-md bg-accent-teal px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-teal/90"
+            className="chronicle-cta-teal rounded-md bg-accent-teal px-5 py-2 text-sm font-medium text-white hover:bg-accent-teal/95"
           >
             I understand
           </button>

@@ -107,7 +107,7 @@ export default function EvalPage() {
             </p>
             <Link
               href="/app"
-              className="inline-flex items-center justify-center rounded-md bg-ink px-3.5 py-1.5 text-[13px] font-medium text-base transition-colors duration-150 hover:bg-ink/85"
+              className="chronicle-cta-ink inline-flex items-center justify-center rounded-md bg-ink px-3.5 py-1.5 text-[13px] font-medium text-base hover:bg-ink/90"
             >
               Open app
             </Link>
@@ -700,7 +700,7 @@ function LiveErrorBlock({
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-base transition-colors duration-150 hover:bg-ink/85"
+          className="chronicle-cta-ink rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-base hover:bg-ink/90"
         >
           Retry live
         </button>

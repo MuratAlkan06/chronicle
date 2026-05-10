@@ -60,7 +60,7 @@ function TopNav() {
           </Link>
           <Link
             href="/app"
-            className="inline-flex items-center justify-center rounded-md bg-ink px-3.5 py-1.5 text-[13px] font-medium text-base transition-colors duration-150 hover:bg-ink/85"
+            className="chronicle-cta-ink inline-flex items-center justify-center rounded-md bg-ink px-3.5 py-1.5 text-[13px] font-medium text-base hover:bg-ink/90"
           >
             Open app
           </Link>
@@ -120,7 +120,7 @@ function Hero() {
         >
           <Link
             href="/app"
-            className="inline-flex items-center gap-2 rounded-md bg-accent-teal px-5 py-2.5 text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(15,118,110,0.25)] transition-all duration-150 hover:-translate-y-px hover:bg-accent-teal/90 hover:shadow-[0_6px_18px_rgba(15,118,110,0.22)]"
+            className="chronicle-cta-teal inline-flex items-center gap-2 rounded-md bg-accent-teal px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent-teal/95"
           >
             Get started
             <span aria-hidden className="text-[15px]">
@@ -602,7 +602,14 @@ function BentoCell({
       }`}
     >
       <div className="flex items-center justify-between">
-        <span className="flex h-9 w-9 items-center justify-center rounded-md border border-line bg-base text-accent-teal transition-colors duration-200 group-hover/cell:border-ink-subtle">
+        <span
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-accent-teal/20 text-accent-teal transition-colors duration-200 group-hover/cell:border-accent-teal/40"
+          style={{
+            backgroundColor: "rgba(15,118,110,0.06)",
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(15,118,110,0.06)",
+          }}
+        >
           <Icon className="h-4 w-4" strokeWidth={1.6} aria-hidden />
         </span>
         <BentoStepBadge step={step} />
@@ -1044,7 +1051,7 @@ function FinalCta() {
             <div className="col-span-12 md:col-span-4 md:pl-8">
               <Link
                 href="/app"
-                className="inline-flex items-center gap-2 rounded-md bg-accent-teal px-5 py-2.5 text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(15,118,110,0.25)] transition-all duration-150 hover:-translate-y-px hover:bg-accent-teal/90 hover:shadow-[0_6px_18px_rgba(15,118,110,0.22)]"
+                className="chronicle-cta-teal inline-flex items-center gap-2 rounded-md bg-accent-teal px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent-teal/95"
               >
                 Get started
                 <span aria-hidden className="text-[15px]">

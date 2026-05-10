@@ -173,3 +173,63 @@
     transparent 100%
   );
 }
+
+/* Primary teal CTA — layered shadow stack:
+   - inner top highlight (lit-from-above)
+   - inner bottom shadow (depth)
+   - offset close shadow (lift)
+   - ambient teal glow (signature)                                          */
+.chronicle-cta-teal {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10),
+    0 1px 2px rgba(15, 118, 110, 0.30),
+    0 4px 14px rgba(15, 118, 110, 0.18);
+  transition:
+    transform 150ms ease-out,
+    box-shadow 200ms ease-out,
+    background-color 150ms ease-out;
+}
+.chronicle-cta-teal:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(15, 118, 110, 0.32),
+    0 10px 24px rgba(15, 118, 110, 0.24);
+}
+.chronicle-cta-teal:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 2px rgba(15, 118, 110, 0.30);
+}
+
+/* Secondary ink CTA — same shadow grammar, ink-tone glow. */
+.chronicle-cta-ink {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40),
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.10);
+  transition:
+    transform 150ms ease-out,
+    box-shadow 200ms ease-out,
+    background-color 150ms ease-out;
+}
+.chronicle-cta-ink:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40),
+    0 2px 4px rgba(0, 0, 0, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.14);
+}
+.chronicle-cta-ink:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40),
+    0 1px 2px rgba(0, 0, 0, 0.22);
+}

@@ -114,10 +114,10 @@ export default function AppPage() {
                     type="button"
                     onClick={() => loadPreset(p.id)}
                     disabled={isExtracting}
-                    className={`group/preset text-left rounded-lg border px-4 py-3 transition-all duration-150 ease-out hover:-translate-y-px hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`group/preset text-left rounded-lg border px-4 py-3 transition-all duration-150 ease-out hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60 ${
                       active
-                        ? "border-accent-teal bg-accent-teal/[0.04]"
-                        : "border-line bg-surface hover:border-ink-subtle"
+                        ? "border-accent-teal bg-accent-teal/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_10px_rgba(15,118,110,0.10)]"
+                        : "border-line bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] hover:border-ink-subtle hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_3px_10px_rgba(0,0,0,0.05)]"
                     }`}
                   >
                     <div className="flex items-baseline justify-between gap-2">
