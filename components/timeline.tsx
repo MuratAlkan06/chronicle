@@ -29,11 +29,32 @@ export function Timeline({ events, selectedId, onSelect }: TimelineProps) {
 
   return (
     <ol className="relative mx-auto w-full max-w-3xl">
-      {/* Axis line — anchored center, full vertical extent of the list. */}
-      <span
+      {/* Brushed axis line — gentle S-curve with rounded caps, draws on
+          like a hand-pulled stroke when the timeline mounts. SVG stretches
+          to fill the list height; preserveAspectRatio=none keeps the
+          horizontal jitter intact while spanning whatever number of events. */}
+      <svg
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line"
-      />
+        className="pointer-events-none absolute inset-y-0 left-1/2 h-full -translate-x-1/2"
+        width="6"
+        viewBox="0 0 4 100"
+        preserveAspectRatio="none"
+      >
+        <motion.path
+          d="M 2 0 C 1.4 30, 2.6 60, 2 100"
+          stroke="var(--color-ink-subtle)"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.55"
+          initial={reduce ? false : { pathLength: 0 }}
+          animate={reduce ? false : { pathLength: 1 }}
+          transition={{
+            duration: 1.2,
+            ease: [0.22, 0.61, 0.36, 1],
+          }}
+        />
+      </svg>
       <AnimatePresence initial={false}>
         {events.map((event, i) => {
           const side = i % 2 === 0 ? "left" : "right";
