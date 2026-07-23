@@ -120,6 +120,21 @@ The same frozen prompt scored 0.41 and 0.45 across the two runs. At API default 
 
 **Why the dev→held-out gap (0.825 → 0.45) is expected.** Cases 1+2 are semi-synthetic: their gold labels were *derived from* AI-generated MOCK_DATA fixtures (STATE.md cycle 0 + cycle 7), and their case PDFs were drafted from that same source material, so the dev score partly measures round-trip fidelity of documents the pipeline's own source material produced. Case 3 is the only **organically-authored, independently-labeled** case in the set. Under that asymmetry a large gap is the expected outcome rather than a regression, and closing it is the work of Phase A. The escape-hatch rule (Case 3 strict P or R < 0.5) fired on both runs.
 
+### Escape-hatch measurement — Opus 4.7 (pre-registered event #3, 2026-07-23)
+
+The escape-hatch rule that fired on both Sonnet runs was **pre-registered before it was exercised** (STATE.md cycle 18): declared command `npx tsx scripts/eval-case3.ts case3 --runs 3 --model claude-opus-4-7`, with the success bar fixed *in advance* as **strict P and strict R both ≥ 0.5 on the 3-run mean**. The prompt was frozen at v4 (`f32ebd0`, unchanged); `claude-opus-4-7` rejects a pinned `temperature` so it ran at its model default, which is exactly why the **3-run mean±range** — not a single run — is the reported number. All 8 docs extracted cleanly on all 3 runs (0 doc failures).
+
+| Run (UTC) | Tier | P | R | F1 | tp / fp / fn |
+|---|---|---|---|---|---|
+| 2026-07-23T17:51:41Z | strict | 0.44 | 0.40 | 0.42 | 8 / 10 / 12 |
+| 2026-07-23T17:51:58Z | strict | 0.53 | 0.45 | 0.49 | 9 / 8 / 11 |
+| 2026-07-23T17:52:17Z | strict | 0.47 | 0.40 | 0.43 | 8 / 9 / 12 |
+| **3-run mean** | **strict** | **0.48** | **0.42** | **0.45** | — |
+
+Loose scored identically to strict on every run (no date-fuzz events recovered), same as the Sonnet runs. Across the 3 runs strict P ranged 0.44–0.53 and R 0.40–0.45 — inside the ±5 F1-point single-run noise band at `n_gt = 20`.
+
+**Outcome: the bar was not cleared.** Mean strict P = 0.48 and R = 0.42 are both below 0.5, and Opus 4.7 lands in essentially the same band as Sonnet 4.6 (0.41–0.45 strict F1). **Decision, applied exactly as pre-registered: `claude-sonnet-4-6` stays the active extraction model — no code change.** The measurement cost ≈ **$1.58** at `claude-opus-4-7` rates (127K uncached input / 16.7K output / 72K cache-write / 144K cache-read over the 3 runs; 42% of input served from cache) against the reserved ~$100 budget.
+
 ## Demo flow
 
 Local-only. Single narrated walkthrough, ~3:30–4:00 total. 4 beats:
@@ -135,7 +150,7 @@ See [docs/BUILD.md](docs/BUILD.md) §6 for the full narration script and §H11 f
 
 ## Model swap notes (per Q26)
 
-- **Extraction:** `claude-sonnet-4-6` (model id in `lib/claude.ts`). Escape hatch is `claude-opus-4-7` — one-line model-string swap if Case 3 strict P or R falls below 0.5. This condition **fired on both recorded Case 3 runs** (strict P/R = 0.42/0.40 and 0.45/0.45, all below 0.5) and is being exercised in Phase A (issue #7); reserved ~$100 budget covers the re-run trivially.
+- **Extraction:** `claude-sonnet-4-6` (`ACTIVE_MODEL` in `lib/claude.ts`). Escape hatch is `claude-opus-4-7`, run via the `scripts/eval-case3.ts --model` flag (no code edit — the flag overrides the model and auto-omits `temperature` for models that reject it) if Case 3 strict P or R falls below 0.5. That condition **fired on both recorded Sonnet runs** (strict P/R 0.42/0.40 and 0.45/0.45, all below 0.5), so it was pre-registered and **exercised as scored measurement event #3 on 2026-07-23** (`--runs 3 --model claude-opus-4-7`). **Outcome: Opus 4.7 did not clear the ≥0.5 bar** (3-run mean strict P/R 0.48/0.42 — the same band as Sonnet), so **`claude-sonnet-4-6` remains the active model** (see *Held-out Case 3 results* above). Cost ≈ $1.58 against the reserved ~$100 budget.
 - **Patient explainer:** Gemini Flash 2.5 primary, Haiku 4.5 inline fallback. The fallback fires if `GEMINI_API_KEY` is missing OR if Gemini errors before its first chunk is streamed; if Gemini already streamed text and then failed mid-flight, the route closes the SSE rather than restart Haiku and risk a duplicated answer (`app/api/explain/route.ts`). Both providers failing emits a single SSE error frame with `code: "upstream_unavailable"`.
 - **Embeddings:** Voyage `voyage-3` primary, OpenAI `text-embedding-3-small` fallback on 401/429/network-error/malformed-response (`lib/voyage.ts`). Both-providers-fail emits 502 + `code: "upstream_unavailable"`.
 

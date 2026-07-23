@@ -256,7 +256,7 @@ If Tier 1 (related) is broken: cut and move on. If Tier 1 works but other items 
 - Start the dev server. Navigate to `/eval`.
 - Watch the live extraction. Watch the metrics populate.
 - **Whatever the numbers are, they are the numbers.** Do not tune the prompt now. The held-out integrity is the artifact.
-- If strict P or R is below 0.5: **escape hatch decision.** Swap `lib/claude.ts` to use Opus 4.7 instead of Sonnet 4.6 (one-line model string change). Re-run. The $100 reserved budget covers ~1500 doc extractions; one re-run is trivial. If Opus also disappoints, that's the metric you ship — be honest in narration ("strict matching is conservative; loose tier shows real coverage").
+- If strict P or R is below 0.5: **escape hatch decision.** Re-run the measurement against Opus 4.7 via the flag — `npx tsx scripts/eval-case3.ts case3 --runs 3 --model claude-opus-4-7` (no code edit; `--model` overrides Sonnet 4.6 and auto-omits `temperature` for models that reject it). The $100 reserved budget covers ~1500 doc extractions; one re-run is trivial. If Opus also disappoints, that's the metric you ship — be honest in narration ("strict matching is conservative; loose tier shows real coverage"). **[Exercised 2026-07-23 as pre-registered measurement event #3: Opus 4.7 3-run mean strict P/R 0.48/0.42 did not clear the 0.5 bar; `claude-sonnet-4-6` stays the active model. See README "Held-out Case 3 results" + STATE.md cycle 19.]**
 - Save the final live result to `data/case3_eval_fallback.json` as the hotkey backup.
 - Commit everything.
 

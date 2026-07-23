@@ -247,9 +247,12 @@ signal.
 
 ### Peek budget (held-out hygiene)
 
-- **Scored measurements to date: 2** (both 2026-05-10, prompt v4, default
-  temperature).
-- **Remaining budget: ≤2 measurement events** (one event = up to 3 runs, reported
+- **Scored measurements to date: 3** — two on 2026-05-10 (`claude-sonnet-4-6`,
+  prompt v4, default temperature) and one on 2026-07-23 (the pre-registered
+  escape-hatch run, `claude-opus-4-7`, `--runs 3`, prompt v4, model-default
+  temperature; 3-run mean strict P/R 0.48/0.42 — did not clear the 0.5 bar, so
+  Sonnet stays the active model).
+- **Remaining budget: ≤1 measurement event** (one event = up to 3 runs, reported
   as mean±range).
 - **No per-event error analysis of Case 3.** Only aggregate P/R/F1 + tp/fp/fn and
   the per-event-type breakdown may be read. Do not open Case 3 PDFs, the ground
@@ -276,9 +279,9 @@ route caught the errors and scored `predicted: []` against the real ground truth
 (`tp=0`, `fn=20`, real prompt hash `f32ebd0`) and persisted it anyway. Its
 structure confirms the forensics — empty `predicted`, `usage`/`perDocUsage` absent
 (the pre-slice-2 run shape), no `summary-*.json` sibling. Zero successful model
-calls → zero information → **not a held-out measurement** ("2 scored measurements
-to date" still holds). It was identified, forensically explained, and deleted; the
-guard above prevents any recurrence.
+calls → zero information → **not a held-out measurement** (it did not increment the
+scored-measurement count). It was identified, forensically explained, and deleted;
+the guard above prevents any recurrence.
 
 ### `scripts/eval-case3.ts` — the measurement CLI
 
