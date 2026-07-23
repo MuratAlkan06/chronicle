@@ -17,7 +17,8 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import pLimit from "p-limit";
 import { z } from "zod";
-import { extractDoc } from "@/lib/claude";
+import { extractDocWithUsage } from "@/lib/claude";
+import { sumUsage, isDegenerateRun, type ExtractUsage } from "@/lib/measure";
 import { evaluate, breakdown, type GtEvent, type TierResult } from "@/lib/eval";
 import {
   EventTypeSchema,
@@ -355,6 +356,14 @@ function handleLive(request: Request): Response {
       const totalDocs = pdfFiles.length;
       const limit = pLimit(CONCURRENCY);
       const allPredicted: TimelineEvent[] = [];
+      // Per-doc token usage → persisted in the eval_run audit log so cache hits
+      // + cost of a measurement run are auditable (BACKEND-STANDARDS §J.4/J.11).
+      const perDocUsage: { docId: string; usage: ExtractUsage }[] = [];
+      // Per-doc outcome + explicit failures for the degenerate-run guard (#7):
+      // a run where ZERO docs extracted successfully is never persisted, and a
+      // persisted PARTIAL run records which docs failed (docFailures).
+      const outcomes: { ok: boolean }[] = [];
+      const docFailures: { docId: string; error: string }[] = [];
 
       const tasks = pdfFiles.map((filename) =>
         limit(async () => {
@@ -366,12 +375,18 @@ function handleLive(request: Request): Response {
             buffer = readFileSync(join(docsDir, filename));
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            outcomes.push({ ok: false });
+            docFailures.push({ docId, error: message });
             enqueue(sseEvent("doc_error", { docId, message, retryable: false }));
             return;
           }
 
           try {
-            const events = await extractDoc(buffer, docId, filename, { signal });
+            const { events, usage } = await extractDocWithUsage(buffer, docId, filename, {
+              signal,
+            });
+            perDocUsage.push({ docId, usage });
+            outcomes.push({ ok: true });
             for (const event of events) {
               if (signal.aborted) return;
               allPredicted.push(event);
@@ -383,6 +398,8 @@ function handleLive(request: Request): Response {
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             console.error("[eval] doc_error docId=%s message=%s", docId, message);
+            outcomes.push({ ok: false });
+            docFailures.push({ docId, error: message });
             enqueue(sseEvent("doc_error", { docId, message, retryable: false }));
           }
         }),
@@ -391,6 +408,25 @@ function handleLive(request: Request): Response {
       await Promise.all(tasks);
 
       if (signal.aborted) return;
+
+      // -------------------------------------------------------------------
+      // Degenerate-run guard (issue #7): if ZERO docs extracted successfully
+      // (e.g. an invalid ANTHROPIC_API_KEY → 401 on every call), this run
+      // carries no information about model performance — it is NOT a
+      // measurement. Emit an error frame and DO NOT persist: a saved
+      // tp=0/fn=n_gt run would masquerade as a real held-out score (exactly the
+      // pre-guard artifact that had to be forensically removed; see EVAL.md §6).
+      // -------------------------------------------------------------------
+      if (isDegenerateRun(outcomes)) {
+        enqueue(
+          sseEvent("error", {
+            code: "all_docs_failed",
+            message: `All ${totalDocs} document(s) failed extraction (0 successful) — not a measurement; run not persisted. First error: ${docFailures[0]?.error ?? "unknown"}`,
+            retryable: false,
+          }),
+        );
+        return;
+      }
 
       // -------------------------------------------------------------------
       // Step 5: metrics + breakdown.
@@ -422,9 +458,17 @@ function handleLive(request: Request): Response {
           {
             generatedAt: new Date().toISOString(),
             promptHash,
+            temperature: 0,
             predicted: allPredicted,
             metrics: { strict: strictResult, loose: looseResult },
             byEventType: { strict: strictBreakdown, loose: looseBreakdown },
+            // Token usage for this run — aggregate + per-doc. Additive to the
+            // historical eval_run shape; readers treat it as optional.
+            usage: sumUsage(perDocUsage.map((d) => d.usage)),
+            perDocUsage,
+            // Docs that failed extraction this run (empty on a fully-successful
+            // run). A run where ALL docs fail is refused above, never persisted.
+            docFailures,
           },
           null,
           2,

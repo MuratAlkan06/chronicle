@@ -187,3 +187,108 @@ You will iterate the prompt against Cases 1+2 ONLY. Process:
 
 ---
 
+## 6. Held-out measurement protocol (Phase A — measurement rigor)
+
+Phase A (issue #7) hardens *how* Case 3 is measured. Three rules: temperature 0,
+report a **mean±range over 3 runs**, and spend the peek budget deliberately.
+
+### Temperature 0
+
+Extraction is pinned to `temperature: 0` in `lib/claude.ts`. This minimizes
+run-to-run variance from sampling. It does **not** guarantee bit-exact
+determinism (the model can still vary), which is exactly why the N-run
+mean±range below — not a single run — is the reported number.
+
+- **Model caveat.** `claude-sonnet-4-6` accepts `temperature` (verified against
+  Anthropic docs 2026-07-22). The sampling-parameter deprecation — any
+  non-default value returns HTTP 400 — applies only to models released *after*
+  Claude Opus 4.6 (Opus 4.7+, Sonnet 5, Fable 5, …). If the extraction model is
+  ever bumped past that line, the `temperature` field must be removed or every
+  call 400s.
+- **Historical numbers predate this.** Every row in `prompts/CHANGELOG.md` and
+  the two recorded Case 3 runs (`2026-05-10T18:33:16Z` strict F1 0.41,
+  `2026-05-10T20:15:09Z` strict F1 0.45) were produced at the **Anthropic API
+  default temperature (≈1.0), no seed**. They are *not* directly comparable to
+  any temperature-0 measurement taken from this point forward.
+
+### What counts as one "measurement event"
+
+**One measurement event = one invocation of `scripts/eval-case3.ts`, which runs
+`--runs N` (default 3) extraction+eval passes and reports the mean, min, and max
+of strict/loose P/R/F1 plus per-run tp/fp/fn.** A single run is never reported on
+its own — at `n_gt = 20`, one event ≈ 5 F1 points, so the range is the honest
+signal.
+
+### Peek budget (held-out hygiene)
+
+- **Scored measurements to date: 2** (both 2026-05-10, prompt v4, default
+  temperature).
+- **Remaining budget: ≤2 measurement events** (one event = up to 3 runs, reported
+  as mean±range).
+- **No per-event error analysis of Case 3.** Only aggregate P/R/F1 + tp/fp/fn and
+  the per-event-type breakdown may be read. Do not open Case 3 PDFs, the ground
+  truth, or the per-event `predicted`/matched lists in `eval_runs/*.json`.
+
+### Degenerate runs are not measurements (never persisted)
+
+A run in which **zero documents produced a successful extraction** — every per-doc
+call threw (an auth/transport failure, e.g. an invalid `ANTHROPIC_API_KEY`
+returning 401) — carries no information about model performance. It is **not a
+measurement**, is not billed, and does **not** count against the peek budget. The
+harness refuses to persist one: `isDegenerateRun(outcomes)` in `lib/measure.ts` is
+enforced in both persist paths — the live `/api/eval` route emits an
+`all_docs_failed` error frame instead of writing, and `scripts/eval-case3.ts`
+aborts non-zero *before* writing any run file (and, in a multi-run sequence,
+before writing the summary). A run with **≥1** successful doc may persist but must
+record the failed docs explicitly (`docFailures` in the artifact).
+
+**One pre-guard artifact existed and was removed.** Before this guard,
+`held_out/case3/eval_runs/2026-07-23T06-21-47-086Z.json` was written by the
+pre-existing `/api/eval` live auto-run during a slice-1 fallback-render check: the
+dev server had a dummy `ANTHROPIC_API_KEY`, so every per-doc extraction threw, the
+route caught the errors and scored `predicted: []` against the real ground truth
+(`tp=0`, `fn=20`, real prompt hash `f32ebd0`) and persisted it anyway. Its
+structure confirms the forensics — empty `predicted`, `usage`/`perDocUsage` absent
+(the pre-slice-2 run shape), no `summary-*.json` sibling. Zero successful model
+calls → zero information → **not a held-out measurement** ("2 scored measurements
+to date" still holds). It was identified, forensically explained, and deleted; the
+guard above prevents any recurrence.
+
+### `scripts/eval-case3.ts` — the measurement CLI
+
+```bash
+npx tsx scripts/eval-case3.ts                 # case3, 3 runs (the deliverable)
+npx tsx scripts/eval-case3.ts --runs 5        # case3, 5 runs
+npx tsx scripts/eval-case3.ts --dry-run       # list docs + config, no API calls
+```
+
+Before extracting, it enforces the held-out hygiene gates (per
+BACKEND-STANDARDS §J.5): `.gt_hash.lock` must equal `git hash-object
+held_out/case3/ground_truth.json`, `prompts/` must be git-clean, and the active
+prompt hash is written to `held_out/case3/prompt_hash.txt`. Each run is persisted
+to `held_out/case3/eval_runs/<timestamp>.json` (same shape the live `/api/eval`
+route writes), and a `summary-<timestamp>.json` records the mean±range.
+
+A dev-case mode (`eval-case3.ts case1 …`, reading `data/cases/<id>`) runs the
+identical N-run machinery **without** the hygiene gates so the pipeline can be
+exercised without spending Case 3 budget — dev cases are not measurement events.
+
+### Usage-field persistence
+
+Every extraction path now persists the four Anthropic token-usage fields
+(`input_tokens`, `output_tokens`, `cache_read_input_tokens`,
+`cache_creation_input_tokens`):
+
+- **Case extractions** → `data/cases/<id>/metadata.json` (`usageTotals` +
+  per-doc `perDoc[].usage`).
+- **Measurement runs** → `held_out/case3/eval_runs/*.json` and the live
+  `/api/eval` run log (`usage` aggregate + `perDocUsage`).
+
+Old artifacts without usage fields stay readable everywhere (missing fields
+normalize to 0). `scripts/cache-report.ts` scans these artifacts and reports
+total tokens, the % of input tokens served from cache, and the net $ saved vs a
+no-caching counterfactual (including the 1.25× cache-write premium), using the
+dated pricing table in `lib/pricing.ts`.
+
+---
+

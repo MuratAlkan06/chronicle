@@ -75,7 +75,20 @@ npx tsx scripts/eval-train.ts case1 case2
 # Validate held_out/case3/ground_truth.json structurally before locking
 # (does NOT call any model — preserves held-out hygiene)
 npx tsx scripts/validate-gt.ts
+
+# Held-out Case 3 measurement (the deliverable). Runs extraction+eval N times
+# (default 3), persists each run to held_out/case3/eval_runs/ + a mean/min/max
+# summary. Enforces the .gt_hash.lock + prompt-clean gates first. Each
+# invocation is ONE measurement event for peek-budget accounting.
+npx tsx scripts/eval-case3.ts --runs 3
+npx tsx scripts/eval-case3.ts --dry-run          # list docs, no API calls
+
+# Prompt-caching savings report: scans persisted usage fields → tokens, %
+# served from cache, and net $ saved vs no-caching (incl. 1.25x write premium).
+npx tsx scripts/cache-report.ts
 ```
+
+Extraction runs at `temperature: 0` (`lib/claude.ts`) for run-to-run stability; the N-run mean±range from `scripts/eval-case3.ts` is the primary rigor mechanism (temperature alone does not guarantee bit-exact determinism). All per-call token usage is persisted (`metadata.json` for case extractions, `eval_runs/*.json` for measurement runs) so `scripts/cache-report.ts` can account for cache hits and cost.
 
 ## Evaluation methodology
 
@@ -100,6 +113,8 @@ Prompt v4 (hash `f32ebd0`, Sonnet 4.6, API default temperature, no seed) was run
 | 2026-05-10T20:15:09Z | loose | 0.45 | 0.45 | 0.45 | 9 / 11 / 11 |
 
 The same frozen prompt scored 0.41 and 0.45 across the two runs. At API default temperature with no seed, single-run deltas under ~±5 F1 points are within run-to-run noise (at `n_gt = 20`, one event ≈ 5 F1 points), so 0.41 and 0.45 are the same measurement. The loose tier scored identically to strict on both runs — no date-fuzz events were recovered.
+
+> **Note (Phase A, slice 2):** both runs above predate the measurement-rigor change and were taken at the **Anthropic API default temperature (≈1.0), no seed**. Extraction is now pinned to `temperature: 0` and future measurement events report the **mean±range over 3 runs** (`scripts/eval-case3.ts`), so new numbers are not directly comparable to these two single-run, default-temperature measurements. See [docs/EVAL.md](docs/EVAL.md) "Held-out measurement protocol".
 
 **Why the dev→held-out gap (0.825 → 0.45) is expected.** Cases 1+2 are semi-synthetic: their gold labels were *derived from* AI-generated MOCK_DATA fixtures (STATE.md cycle 0 + cycle 7), and their case PDFs were drafted from that same source material, so the dev score partly measures round-trip fidelity of documents the pipeline's own source material produced. Case 3 is the only **organically-authored, independently-labeled** case in the set. Under that asymmetry a large gap is the expected outcome rather than a regression, and closing it is the work of Phase A. The escape-hatch rule (Case 3 strict P or R < 0.5) fired on both runs.
 

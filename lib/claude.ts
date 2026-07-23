@@ -18,9 +18,23 @@ import {
   TimelineEventSchema,
   type TimelineEvent,
 } from "./schema";
+import { normalizeUsage, type ExtractUsage } from "./measure";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 4096;
+
+// Deterministic-as-possible extraction (Phase A rigor per docs/EVAL.md).
+// claude-sonnet-4-6 ACCEPTS `temperature` — the sampling-parameter deprecation
+// (any non-default value → HTTP 400) only applies to models released after
+// Claude Opus 4.6 (Opus 4.7+, Sonnet 5, Fable 5, …). Verified against the
+// Anthropic docs/SDK on 2026-07-22. IF THE MODEL IS EVER BUMPED past that line,
+// this constant MUST be removed (omit the field) or every call will 400.
+// temperature:0 minimizes run-to-run variance but does NOT guarantee bit-exact
+// determinism; the N-run mean±range in scripts/eval-case3.ts is the primary
+// rigor mechanism.
+const TEMPERATURE = 0;
+
+export type { ExtractUsage } from "./measure";
 
 // Inline copy of the system prompt body. Source: prompts/system_extract_v4.md.
 // Kept inline (not file-read at request time) so the prompt-cache key is
@@ -143,6 +157,12 @@ export interface ExtractDocOptions {
   signal?: AbortSignal;
 }
 
+/** Events plus the per-call token usage, for callers that persist usage. */
+export interface ExtractResult {
+  events: TimelineEvent[];
+  usage: ExtractUsage;
+}
+
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {
   if (_client) return _client;
@@ -155,7 +175,9 @@ function getClient(): Anthropic {
 }
 
 /**
- * Extract timeline events from a single PDF buffer.
+ * Extract timeline events from a single PDF buffer, returning the validated
+ * events. Thin wrapper over {@link extractDocWithUsage} for the many callers
+ * that don't persist token usage (SSE streaming, prewarm, preflight).
  *
  * On per-event zod failure: log warning + drop the event (do not crash the
  * document). On no tool_use block: throw with code `extraction_failed`.
@@ -166,12 +188,28 @@ export async function extractDoc(
   filename: string,
   options: ExtractDocOptions = {},
 ): Promise<TimelineEvent[]> {
+  return (await extractDocWithUsage(pdfBuffer, docId, filename, options)).events;
+}
+
+/**
+ * Extract timeline events AND surface the per-call token usage. Used by the
+ * persistence paths (scripts/extract-case.ts metadata, scripts/eval-case3.ts +
+ * app/api/eval measurement runs) so cache hits and cost are auditable after the
+ * fact (docs/BACKEND-STANDARDS.md §J.4, §J.11).
+ */
+export async function extractDocWithUsage(
+  pdfBuffer: Buffer,
+  docId: string,
+  filename: string,
+  options: ExtractDocOptions = {},
+): Promise<ExtractResult> {
   const client = getClient();
 
   const response = await client.messages.create(
     {
       model: MODEL,
       max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
       system: [
         { type: "text", text: SYSTEM_PROMPT },
         // Cache breakpoint stays here so few-shot drops in cleanly later.
@@ -207,8 +245,18 @@ export async function extractDoc(
     { signal: options.signal },
   );
 
-  // Surface cache hits per BACKEND-STANDARDS J.4 — operator visibility.
-  console.log("[claude] doc=%s usage=%j", docId, response.usage);
+  // Surface cache hits per BACKEND-STANDARDS J.4/J.8 — operator visibility.
+  // Fixed-field format (matches J.8 example) so log lines are greppable and
+  // the four persisted usage fields are visible at a glance.
+  const usage = normalizeUsage(response.usage);
+  console.log(
+    "[claude] doc=%s input=%d output=%d cache_read=%d cache_create=%d",
+    docId,
+    usage.input_tokens,
+    usage.output_tokens,
+    usage.cache_read_input_tokens,
+    usage.cache_creation_input_tokens,
+  );
 
   const toolUse = response.content.find(
     (block): block is Anthropic.Messages.ToolUseBlock =>
@@ -249,7 +297,7 @@ export async function extractDoc(
     }
   }
 
-  return validated;
+  return { events: validated, usage };
 }
 
 /**

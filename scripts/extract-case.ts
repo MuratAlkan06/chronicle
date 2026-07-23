@@ -33,7 +33,8 @@ import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync } from 
 import { join, dirname } from "node:path";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
-import { extractDoc } from "../lib/claude";
+import { extractDocWithUsage } from "../lib/claude";
+import { sumUsage, type ExtractUsage } from "../lib/measure";
 import {
   CaseFixtureSchema,
   TimelineEventSchema,
@@ -156,13 +157,17 @@ async function main(): Promise<void> {
   // results, used for stable sort below.
   const docOrder: string[] = [];
   const allEvents: TimelineEvent[] = [];
+  // Per-doc token usage → persisted in metadata.json so cache hits + cost are
+  // auditable after the fact (scripts/cache-report.ts).
+  const perDoc: { docId: string; eventCount: number; usage: ExtractUsage }[] = [];
 
   for (const filename of pdfNames) {
     const docId = filename.replace(/\.pdf$/i, "");
     const buffer = readFileSync(join(docsDir, filename));
-    const events = await extractDoc(buffer, docId, filename);
+    const { events, usage } = await extractDocWithUsage(buffer, docId, filename);
     docOrder.push(docId);
     allEvents.push(...events);
+    perDoc.push({ docId, eventCount: events.length, usage });
     console.log(`[extract-case] doc=${docId} events=${events.length}`);
   }
 
@@ -205,10 +210,16 @@ async function main(): Promise<void> {
   const metadata = {
     generatedAt: new Date().toISOString(),
     modelVersion: MODEL_VERSION,
+    temperature: 0,
     promptHash: promptHashShort(),
     caseId,
     docCount: pdfNames.length,
     eventCount: sorted.length,
+    // Token usage — total across all docs plus a per-doc breakdown. Old
+    // metadata.json files (pre-usage) simply omit these; every reader
+    // (app/api/cases route, scripts/cache-report) treats them as optional.
+    usageTotals: sumUsage(perDoc.map((d) => d.usage)),
+    perDoc,
   };
   writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + "\n", "utf8");
 

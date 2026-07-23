@@ -1,6 +1,6 @@
 # Chronicle — Patient Cases & PDF Authoring Guide
 
-Spec for the 3 sample patient cases. The PDFs are authored by hand (Word → export PDF is fine) and live under `data/cases/<case_id>/docs/` for Cases 1+2 and `held_out/case3/docs/` for Case 3.
+Spec for the 3 sample patient cases. The Cases 1+2 PDFs are semi-synthetic — LLM-drafted from the planning-session source material (the same MOCK_DATA fixtures the Cases 1+2 gold labels derive from); Case 3's PDFs were organically authored. They live under `data/cases/<case_id>/docs/` for Cases 1+2 and `held_out/case3/docs/` for Case 3.
 
 **Hard ordering rule (held-out hygiene):** Case 3 must never be used in prompt iteration, and its ground truth must be labeled and hash-locked before the model is ever run against it. What actually happened: Case 3 was never used in prompt iteration; its ground truth was authored independently of model output on Case 3, hash-locked in commit `59ca076` before the prompt was ever run against Case 3 (first recorded measurement `2026-05-10T18:33:16Z`). This prevents backward-tuning the held-out case to extraction patterns observed in the others. Per BUILD.md Block 1.
 
