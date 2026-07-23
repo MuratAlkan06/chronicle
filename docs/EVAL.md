@@ -189,27 +189,53 @@ You will iterate the prompt against Cases 1+2 ONLY. Process:
 
 ## 6. Held-out measurement protocol (Phase A — measurement rigor)
 
-Phase A (issue #7) hardens *how* Case 3 is measured. Three rules: temperature 0,
-report a **mean±range over 3 runs**, and spend the peek budget deliberately.
+Phase A (issue #7) hardens *how* Case 3 is measured. Three rules: pin
+`temperature: 0` where the model accepts it, report a **mean±range over 3 runs**,
+and spend the peek budget deliberately.
 
-### Temperature 0
+### Temperature (model-aware)
 
-Extraction is pinned to `temperature: 0` in `lib/claude.ts`. This minimizes
-run-to-run variance from sampling. It does **not** guarantee bit-exact
+Extraction pins `temperature: 0` for the default model (`claude-sonnet-4-6`) to
+minimize run-to-run variance from sampling. It does **not** guarantee bit-exact
 determinism (the model can still vary), which is exactly why the N-run
 mean±range below — not a single run — is the reported number.
 
-- **Model caveat.** `claude-sonnet-4-6` accepts `temperature` (verified against
-  Anthropic docs 2026-07-22). The sampling-parameter deprecation — any
-  non-default value returns HTTP 400 — applies only to models released *after*
-  Claude Opus 4.6 (Opus 4.7+, Sonnet 5, Fable 5, …). If the extraction model is
-  ever bumped past that line, the `temperature` field must be removed or every
-  call 400s.
+Whether `temperature` may be sent **at all is model-dependent**, decided by
+`supportsTemperaturePin(model)` in `lib/claude.ts`:
+
+- **Opus 4.6 wave and earlier** (incl. `claude-sonnet-4-6`, the active model)
+  accept `temperature` → the request sends `0`. Verified live 2026-07-23: a case1
+  extraction with `temperature: 0` on `claude-sonnet-4-6` returns 200.
+- **Released after Opus 4.6** (`claude-opus-4-7`+, Sonnet 5, Fable 5, …) reject any
+  non-default `temperature` with HTTP 400 — the Anthropic SDK marks the field
+  `@deprecated` and only `1.0` is accepted for backwards-compat. For these the
+  request **omits** `temperature` and the model runs at its default; the artifact
+  records `temperature: null` (an honest "model default", never a false `0`).
+
+The predicate is a version threshold, not a lookup table (generation ≥ 5, or
+generation 4 minor ≥ 7 → omit; unrecognized ids default to the safe "omit" side),
+so an unknown model can never 400 the extraction path. This is what lets the Case 3
+escape hatch (`--model claude-opus-4-7`, below) run without any code change.
 - **Historical numbers predate this.** Every row in `prompts/CHANGELOG.md` and
   the two recorded Case 3 runs (`2026-05-10T18:33:16Z` strict F1 0.41,
   `2026-05-10T20:15:09Z` strict F1 0.45) were produced at the **Anthropic API
   default temperature (≈1.0), no seed**. They are *not* directly comparable to
   any temperature-0 measurement taken from this point forward.
+
+**Tool-payload encodings (normalized parser-side).** The same post-Opus-4.6
+models that reject temperature pinning also vary how they serialize the
+`emit_events` tool call run-to-run (observed 2026-07-23: `claude-opus-4-7`
+returned `input.events` as a JSON *string* re-encoding the whole
+`{ events: [...] }` payload on some case1 docs while emitting the canonical array
+on others). `normalizeEmittedEvents` in `lib/claude.ts` accepts the documented
+array plus these mechanically-equivalent encodings — JSON-string → parse, nested
+`{ events }` wrapper → unwrap, numeric-keyed object → values, single bare event →
+wrap — as pure *shape* transforms that never invent or alter event content. The
+prompt and tool schema are unchanged (`promptHash f32ebd0` holds), so the
+Opus-vs-Sonnet comparison stays clean. Any unrecognized or ambiguous shape fails
+that document **loudly** (`code=extraction_failed`, recorded as a `docFailure`)
+rather than silently degrading to zero events — so an Opus escape-hatch run
+measures extraction quality, not tool-serialization variance.
 
 ### What counts as one "measurement event"
 
@@ -257,9 +283,10 @@ guard above prevents any recurrence.
 ### `scripts/eval-case3.ts` — the measurement CLI
 
 ```bash
-npx tsx scripts/eval-case3.ts                 # case3, 3 runs (the deliverable)
-npx tsx scripts/eval-case3.ts --runs 5        # case3, 5 runs
-npx tsx scripts/eval-case3.ts --dry-run       # list docs + config, no API calls
+npx tsx scripts/eval-case3.ts                          # case3, 3 runs (the deliverable)
+npx tsx scripts/eval-case3.ts --runs 5                 # case3, 5 runs
+npx tsx scripts/eval-case3.ts --model claude-opus-4-7  # case3 escape hatch (Opus)
+npx tsx scripts/eval-case3.ts --dry-run                # list docs + config, no API calls
 ```
 
 Before extracting, it enforces the held-out hygiene gates (per
@@ -267,7 +294,17 @@ BACKEND-STANDARDS §J.5): `.gt_hash.lock` must equal `git hash-object
 held_out/case3/ground_truth.json`, `prompts/` must be git-clean, and the active
 prompt hash is written to `held_out/case3/prompt_hash.txt`. Each run is persisted
 to `held_out/case3/eval_runs/<timestamp>.json` (same shape the live `/api/eval`
-route writes), and a `summary-<timestamp>.json` records the mean±range.
+route writes) — including the `model` id used and the `temperature` actually sent
+(`0`, or `null` when the model ran at its default) — and a
+`summary-<timestamp>.json` records the mean±range plus that same `model` and
+`temperature`.
+
+`--model <id>` overrides the extraction model (default: `lib/claude`'s
+`ACTIVE_MODEL` = `claude-sonnet-4-6`). It exists for the Case 3 escape hatch
+(BUILD.md: if Case 3 strict P or R < 0.5, try `claude-opus-4-7`): the run records
+whichever model was used, and `temperature` is pinned or omitted for that model
+automatically (see *Temperature*, above). It does **not** relax the held-out
+hygiene gates — an `--model` Case 3 run is still a scored measurement event.
 
 A dev-case mode (`eval-case3.ts case1 …`, reading `data/cases/<id>`) runs the
 identical N-run machinery **without** the hygiene gates so the pipeline can be
@@ -289,6 +326,18 @@ normalize to 0). `scripts/cache-report.ts` scans these artifacts and reports
 total tokens, the % of input tokens served from cache, and the net $ saved vs a
 no-caching counterfactual (including the 1.25× cache-write premium), using the
 dated pricing table in `lib/pricing.ts`.
+
+### Model + temperature persistence
+
+Every run artifact records the `model` id actually used and the `temperature`
+actually sent — `0` for models that accept it, `null` when the model ran at its
+default (see *Temperature*, above) — so a persisted measurement is attributable to
+a specific model and honestly states whether it was pinned or ran at default. This
+covers `scripts/eval-case3.ts` run files + summaries and the live `/api/eval` run
+log; case extractions stamp `metadata.json`'s `modelVersion` from the same
+`ACTIVE_MODEL` source so it can't drift from the request. Old artifacts predating
+this omit `model` (and carry no `temperature`); every reader treats both as
+optional.
 
 ---
 

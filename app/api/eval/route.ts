@@ -20,7 +20,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import pLimit from "p-limit";
 import { z } from "zod";
-import { extractDocWithUsage } from "@/lib/claude";
+import { extractDocWithUsage, ACTIVE_MODEL, supportsTemperaturePin } from "@/lib/claude";
 import { sumUsage, isDegenerateRun, type ExtractUsage } from "@/lib/measure";
 import { evaluate, breakdown, type GtEvent, type TierResult } from "@/lib/eval";
 import {
@@ -460,8 +460,12 @@ function handleLive(request: Request): Response {
         JSON.stringify(
           {
             generatedAt: new Date().toISOString(),
+            // The live /eval path always extracts with the default ACTIVE_MODEL;
+            // record it + the temperature actually sent (0, or null when the
+            // model runs at its default) so the artifact is model-attributable.
+            model: ACTIVE_MODEL,
             promptHash,
-            temperature: 0,
+            temperature: supportsTemperaturePin(ACTIVE_MODEL) ? 0 : null,
             predicted: allPredicted,
             metrics: { strict: strictResult, loose: looseResult },
             byEventType: { strict: strictBreakdown, loose: looseBreakdown },

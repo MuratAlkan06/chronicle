@@ -237,6 +237,7 @@ test("assembleRunRecord: flattens predicted in DOC order + sums usage + scores",
 
   const rec = assembleRunRecord({
     caseId: "case1",
+    model: "claude-sonnet-4-6",
     promptHash: "abc1234",
     temperature: 0,
     run: 2,
@@ -250,6 +251,7 @@ test("assembleRunRecord: flattens predicted in DOC order + sums usage + scores",
 
   // Metadata carried through.
   assert.equal(rec.caseId, "case1");
+  assert.equal(rec.model, "claude-sonnet-4-6");
   assert.equal(rec.promptHash, "abc1234");
   assert.equal(rec.temperature, 0);
   assert.equal(rec.run, 2);
@@ -287,7 +289,7 @@ test("assembleRunRecord: N runs feed summarizeRuns end-to-end (mocked machinery)
   const gt: GtEvent[] = [gtEv({ id: "gt1", source_document: "d1" })];
 
   const records = [1, 2].map((i) =>
-    assembleRunRecord({ caseId: "case1", promptHash: "h", temperature: 0, run: i, runs: 2, perDoc, gtEvents: gt }),
+    assembleRunRecord({ caseId: "case1", model: "claude-sonnet-4-6", promptHash: "h", temperature: 0, run: i, runs: 2, perDoc, gtEvents: gt }),
   );
   const summary = summarizeRuns(records.map((r) => ({ strict: r.metrics.strict, loose: r.metrics.loose })));
 
@@ -307,7 +309,7 @@ test("assembleRunRecord: no failures param → docFailures is [] (fully-successf
     { docId: "d1", events: [ev({ id: "d1e1", docId: "d1" })], usage: ZERO_USAGE },
   ];
   const rec = assembleRunRecord({
-    caseId: "case1", promptHash: "h", temperature: 0, run: 1, runs: 1,
+    caseId: "case1", model: "claude-sonnet-4-6", promptHash: "h", temperature: 0, run: 1, runs: 1,
     perDoc, gtEvents: [gtEv({ id: "gt1", source_document: "d1" })],
   });
   assert.deepEqual(rec.docFailures, []);
@@ -324,7 +326,7 @@ test("assembleRunRecord: PARTIAL run records docFailures explicitly; failed docs
     },
   ];
   const rec = assembleRunRecord({
-    caseId: "case1", promptHash: "h", temperature: 0, run: 1, runs: 1,
+    caseId: "case1", model: "claude-sonnet-4-6", promptHash: "h", temperature: 0, run: 1, runs: 1,
     perDoc,
     failures: [{ docId: "d2", error: "401 authentication_error" }],
     gtEvents: [
@@ -339,4 +341,35 @@ test("assembleRunRecord: PARTIAL run records docFailures explicitly; failed docs
   assert.deepEqual(rec.perDocUsage.map((d) => d.docId), ["d1"]);
   assert.equal(rec.usage.input_tokens, 100);
   assert.equal(rec.metrics.strict.fn, 1); // gt2 unmatched (its doc failed)
+});
+
+// ---------------------------------------------------------------------------
+// model + temperature persistence — a run must be attributable to the model
+// used, and honestly record whether temperature was pinned or ran at default.
+// ---------------------------------------------------------------------------
+
+test("assembleRunRecord: records model id + pinned temperature (default sonnet path)", () => {
+  const perDoc: DocExtraction[] = [
+    { docId: "d1", events: [ev({ id: "d1e1", docId: "d1" })], usage: ZERO_USAGE },
+  ];
+  const rec = assembleRunRecord({
+    caseId: "case3", model: "claude-sonnet-4-6", promptHash: "h", temperature: 0,
+    run: 1, runs: 3, perDoc, gtEvents: [gtEv({ id: "gt1", source_document: "d1" })],
+  });
+  assert.equal(rec.model, "claude-sonnet-4-6");
+  assert.equal(rec.temperature, 0);
+});
+
+test("assembleRunRecord: escape-hatch model records temperature=null (ran at model default)", () => {
+  // Opus 4.7 rejects a pinned temperature → the harness sends none and records
+  // null, so the persisted measurement says "model default", not a false "0".
+  const perDoc: DocExtraction[] = [
+    { docId: "d1", events: [ev({ id: "d1e1", docId: "d1" })], usage: ZERO_USAGE },
+  ];
+  const rec = assembleRunRecord({
+    caseId: "case3", model: "claude-opus-4-7", promptHash: "h", temperature: null,
+    run: 1, runs: 3, perDoc, gtEvents: [gtEv({ id: "gt1", source_document: "d1" })],
+  });
+  assert.equal(rec.model, "claude-opus-4-7");
+  assert.equal(rec.temperature, null);
 });

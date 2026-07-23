@@ -33,7 +33,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync } from 
 import { join, dirname } from "node:path";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
-import { extractDocWithUsage } from "../lib/claude";
+import { extractDocWithUsage, ACTIVE_MODEL } from "../lib/claude";
 import { sumUsage, type ExtractUsage } from "../lib/measure";
 import {
   CaseFixtureSchema,
@@ -63,7 +63,9 @@ const CASE_METADATA: Record<"case1" | "case2", CaseMetadata> = {
   },
 };
 
-const MODEL_VERSION = "claude-sonnet-4-6";
+// Single source of truth: the model actually used (extractDocWithUsage defaults
+// to ACTIVE_MODEL) so metadata.json's modelVersion can't drift from the request.
+const MODEL_VERSION = ACTIVE_MODEL;
 
 function isCaseId(s: string): s is CaseId {
   return s === "case1" || s === "case2" || s === "case3";

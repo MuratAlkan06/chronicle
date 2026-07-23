@@ -20,19 +20,144 @@ import {
 } from "./schema";
 import { normalizeUsage, type ExtractUsage } from "./measure";
 
-const MODEL = "claude-sonnet-4-6";
+/**
+ * The model Chronicle extracts with by default. Exported so the persistence +
+ * measurement paths (scripts/eval-case3.ts, app/api/eval, scripts/extract-case.ts)
+ * default to and record the SAME id, and so the Case 3 escape-hatch experiment
+ * (docs/BUILD.md) can override it per-run via `--model` without editing code.
+ */
+export const ACTIVE_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 4096;
 
 // Deterministic-as-possible extraction (Phase A rigor per docs/EVAL.md).
-// claude-sonnet-4-6 ACCEPTS `temperature` — the sampling-parameter deprecation
-// (any non-default value → HTTP 400) only applies to models released after
-// Claude Opus 4.6 (Opus 4.7+, Sonnet 5, Fable 5, …). Verified against the
-// Anthropic docs/SDK on 2026-07-22. IF THE MODEL IS EVER BUMPED past that line,
-// this constant MUST be removed (omit the field) or every call will 400.
 // temperature:0 minimizes run-to-run variance but does NOT guarantee bit-exact
 // determinism; the N-run mean±range in scripts/eval-case3.ts is the primary
-// rigor mechanism.
-const TEMPERATURE = 0;
+// rigor mechanism. Whether the field may be sent AT ALL is model-dependent —
+// see supportsTemperaturePin below; the request omits it for models that reject it.
+const PINNED_TEMPERATURE = 0;
+
+/**
+ * Does `model` accept an explicit `temperature` on the Messages API?
+ *
+ * Anthropic deprecated non-default sampling parameters: every model released
+ * *after* the Claude Opus 4.6 wave rejects a non-default `temperature` (also
+ * top_p / top_k) with HTTP 400 — only the model default is allowed, so the field
+ * must be OMITTED for those models. Verified against the @anthropic-ai/sdk
+ * `temperature` `@deprecated` note ("Models released after Claude Opus 4.6 do
+ * not support setting temperature … all other values will be rejected with a
+ * 400 error") and the /v1/models catalog on 2026-07-23.
+ *
+ * The boundary is a release *wave*, encoded as a version threshold so it holds
+ * for future ids without a lookup table:
+ *   - generation ≥ 5          → reject  (Sonnet 5, Fable 5, …)
+ *   - generation 4, minor ≥ 7 → reject  (Opus 4.7, Opus 4.8, …)
+ *   - 4.6 and earlier         → accept  (Sonnet 4.6 = ACTIVE_MODEL, Opus 4.6,
+ *                                        Sonnet/Haiku/Opus 4.5, Opus 4.1, …)
+ * Unparseable ids default to the SAFE side (reject → omit temperature) so an
+ * unrecognized model can never 400 the extraction path.
+ */
+export function supportsTemperaturePin(model: string): boolean {
+  const m = /^claude-[a-z]+-(\d+)(?:-(\d+))?/.exec(model);
+  if (!m) return false; // unknown id → safe side (omit temperature)
+  const generation = Number(m[1]);
+  const minor = m[2] === undefined ? 0 : Number(m[2]);
+  if (generation >= 5) return false; // Sonnet 5, Fable 5, and later waves
+  if (generation === 4 && minor >= 7) return false; // Opus 4.7+ wave
+  return true; // Opus/Sonnet/Haiku 4.6 and earlier accept temperature
+}
+
+/**
+ * Outcome of normalizing the `emit_events` tool payload: either the events
+ * array (documented shape) or a loud, per-doc reason to fail on. Discriminated
+ * so the pure normalizer never throws and every branch is unit-testable.
+ */
+export type EmittedEvents =
+  | { events: unknown[] }
+  | { error: string };
+
+// Cap on how many wrapper/encoding layers we peel before giving up, so a
+// pathological self-nesting payload can never loop.
+const MAX_TOOL_UNWRAP = 4;
+
+/**
+ * Normalize the `emit_events` tool payload into the documented events array,
+ * tolerating the mechanically-equivalent encodings emitted by post-Opus-4.6
+ * models. Those models reject temperature pinning (run at their default) and
+ * vary their tool-call serialization run-to-run — observed live 2026-07-23,
+ * `claude-opus-4-7` on case1: on some docs `input.events` is a JSON *string*
+ * that itself decodes to `{ events: [...] }` (the whole payload re-encoded),
+ * while on others it is the canonical array. Accepted encodings (each a pure
+ * SHAPE normalization — never invents or alters event CONTENT):
+ *
+ *   - canonical array                       → as-is (Sonnet + most Opus docs)
+ *   - absent / null                         → `[]` (zero events; documented `?? []`)
+ *   - JSON string of the payload/array      → JSON.parse, then re-normalize
+ *   - nested `{ events: <array> }` wrapper  → unwrap `.events`
+ *   - numeric-keyed object `{"0":..,"1":..}`→ values in index order (array-as-object)
+ *   - a single bare event object            → wrap in a one-element array
+ *
+ * Anything else (a non-JSON string, an object that is neither a wrapper nor an
+ * array-as-object nor a single event, over-deep nesting) resolves to
+ * `{ error }` so the caller fails that document LOUDLY — we never silently
+ * guess at an ambiguous shape.
+ *
+ * Takes the `events` field value (`toolUse.input.events`), NOT the whole input.
+ */
+export function normalizeEmittedEvents(field: unknown): EmittedEvents {
+  return coerceNode(field, 0);
+}
+
+function coerceNode(node: unknown, depth: number): EmittedEvents {
+  if (depth > MAX_TOOL_UNWRAP) {
+    return { error: "events payload nested past the unwrap limit" };
+  }
+  // Absent → zero events. Preserves the documented `input.events ?? []` behavior
+  // so a doc the model declines to emit events for is not a failure.
+  if (node === undefined || node === null) return { events: [] };
+  // Documented shape.
+  if (Array.isArray(node)) return { events: node };
+  // JSON-string encoding (opus-4-7): decode then re-normalize the result.
+  if (typeof node === "string") {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(node);
+    } catch {
+      return { error: "events field is a string but not valid JSON" };
+    }
+    return coerceNode(parsed, depth + 1);
+  }
+  if (typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    // Nested `{ events: ... }` wrapper (e.g. the decoded d2 string) → unwrap.
+    if ("events" in obj) return coerceNode(obj.events, depth + 1);
+    // Array serialized as an object with contiguous "0".."n-1" keys → values.
+    if (isNumericKeyed(obj)) return { events: numericKeyedValues(obj) };
+    // A single bare event object (no wrapper) → wrap it. `event_type` is the
+    // discriminating field present on every event and on no wrapper.
+    if (typeof obj.event_type === "string") return { events: [obj] };
+  }
+  return { error: "unrecognized events payload shape" };
+}
+
+/** True iff `obj`'s keys are exactly the contiguous integer strings 0..n-1. */
+function isNumericKeyed(obj: Record<string, unknown>): boolean {
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return false;
+  const nums: number[] = [];
+  for (const k of keys) {
+    if (!/^\d+$/.test(k)) return false;
+    nums.push(Number(k));
+  }
+  nums.sort((a, b) => a - b);
+  return nums.every((n, i) => n === i);
+}
+
+/** Values of a numeric-keyed object, ordered by ascending integer key. */
+function numericKeyedValues(obj: Record<string, unknown>): unknown[] {
+  return Object.keys(obj)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((k) => obj[k]);
+}
 
 export type { ExtractUsage } from "./measure";
 
@@ -155,6 +280,13 @@ Extract all clinically discrete events from the attached PDF following the syste
 
 export interface ExtractDocOptions {
   signal?: AbortSignal;
+  /**
+   * Override the extraction model for this call. Defaults to {@link ACTIVE_MODEL}.
+   * Used by the Case 3 escape-hatch experiment (scripts/eval-case3.ts --model).
+   * `temperature` is included or omitted automatically per
+   * {@link supportsTemperaturePin} for whichever model is used.
+   */
+  model?: string;
 }
 
 /** Events plus the per-call token usage, for callers that persist usage. */
@@ -204,12 +336,16 @@ export async function extractDocWithUsage(
   options: ExtractDocOptions = {},
 ): Promise<ExtractResult> {
   const client = getClient();
+  const model = options.model ?? ACTIVE_MODEL;
 
   const response = await client.messages.create(
     {
-      model: MODEL,
+      model,
       max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
+      // Send `temperature` only for models that accept it (4.6 wave and earlier);
+      // post-Opus-4.6 models 400 on any non-default value (supportsTemperaturePin).
+      // Spread so the key is ABSENT — not `undefined` — when unsupported.
+      ...(supportsTemperaturePin(model) ? { temperature: PINNED_TEMPERATURE } : {}),
       system: [
         { type: "text", text: SYSTEM_PROMPT },
         // Cache breakpoint stays here so few-shot drops in cleanly later.
@@ -268,12 +404,21 @@ export async function extractDocWithUsage(
     throw err;
   }
 
-  const rawEvents = (toolUse.input as { events?: unknown[] })?.events ?? [];
-  if (!Array.isArray(rawEvents)) {
-    const err = new Error(`extraction_failed: tool_use.input.events is not an array for doc ${docId}`);
+  // Normalize the tool payload to the documented events array, tolerating the
+  // mechanically-equivalent encodings post-Opus-4.6 models emit at their default
+  // temperature (JSON-string, nested wrapper, array-as-object, single object —
+  // see normalizeEmittedEvents). An unrecognized/ambiguous shape fails THIS doc
+  // loudly (code extraction_failed) so the eval harness records the docFailure
+  // and continues; it never silently drops to zero events.
+  const normalized = normalizeEmittedEvents((toolUse.input as { events?: unknown })?.events);
+  if ("error" in normalized) {
+    const err = new Error(
+      `extraction_failed: ${normalized.error} (tool_use.input.events) for doc ${docId}`,
+    );
     (err as Error & { code?: string }).code = "extraction_failed";
     throw err;
   }
+  const rawEvents = normalized.events;
 
   const validated: TimelineEvent[] = [];
   for (const raw of rawEvents) {

@@ -8,7 +8,7 @@
 import type { ExtractUsage } from "./measure";
 
 /** Date these constants were verified against Anthropic's pricing page. */
-export const PRICING_AS_OF = "2026-07-22";
+export const PRICING_AS_OF = "2026-07-23";
 
 export interface ModelPricing {
   /** Base (uncached) input tokens, USD per million tokens. */
@@ -22,10 +22,13 @@ export interface ModelPricing {
 }
 
 /**
- * Per-MTok USD pricing, verified 2026-07-22. Chronicle extracts with
- * claude-sonnet-4-6 and a single 5-minute ephemeral cache breakpoint, so those
- * are the relevant rows. Cache multipliers relative to base input: 5m write
- * 1.25x, 1h write 2x, read 0.10x (general, all models).
+ * Per-MTok USD pricing, verified 2026-07-23 against
+ * https://platform.claude.com/docs/en/docs/about-claude/pricing (all rows below
+ * re-confirmed that day). Chronicle extracts with claude-sonnet-4-6 and a single
+ * 5-minute ephemeral cache breakpoint, so that is the load-bearing row; the
+ * Opus rows price the Case 3 escape-hatch experiment (--model claude-opus-4-7).
+ * Cache multipliers relative to base input: 5m write 1.25x, 1h write 2x, read
+ * 0.10x (general, all models).
  */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   "claude-sonnet-4-6": {
@@ -33,6 +36,23 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     outputPerMTok: 15,
     cacheWrite5mPerMTok: 3.75, // 1.25 x 3
     cacheReadPerMTok: 0.3, // 0.10 x 3
+  },
+  // Escape-hatch model (docs/BUILD.md: if Case 3 strict P or R < 0.5, try Opus).
+  // Opus 4.5 through 4.8 all share the $5/$25 rate card (verified 2026-07-23).
+  // CAVEAT for cost interpretation (not a rate change): Opus 4.7+ uses a newer
+  // tokenizer that emits ~30% MORE tokens for the same text than Sonnet 4.6, so
+  // an equal-quality Opus run costs more than the $5-vs-$3 rate ratio alone.
+  "claude-opus-4-7": {
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    cacheWrite5mPerMTok: 6.25, // 1.25 x 5
+    cacheReadPerMTok: 0.5, // 0.10 x 5
+  },
+  "claude-opus-4-6": {
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    cacheWrite5mPerMTok: 6.25,
+    cacheReadPerMTok: 0.5,
   },
   // General reference rows (not used by extraction, handy for the report).
   "claude-sonnet-4-5": {

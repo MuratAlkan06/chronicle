@@ -220,8 +220,19 @@ export function isDegenerateRun(outcomes: readonly { ok: boolean }[]): boolean {
  */
 export interface RunRecord {
   caseId: string;
+  /**
+   * The extraction model id actually used this run (e.g. "claude-sonnet-4-6", or
+   * "claude-opus-4-7" under the escape-hatch experiment). Recorded so a persisted
+   * measurement is attributable to a model. Old artifacts omit it (read as absent).
+   */
+  model: string;
   promptHash: string;
-  temperature: number;
+  /**
+   * Sampling temperature actually sent, or `null` when the model rejects a
+   * non-default temperature (post-Opus-4.6 wave) and the call therefore ran at
+   * the model default. See lib/claude supportsTemperaturePin.
+   */
+  temperature: number | null;
   run: number;
   runs: number;
   predicted: TimelineEvent[];
@@ -249,8 +260,11 @@ export interface RunRecord {
  */
 export function assembleRunRecord(input: {
   caseId: string;
+  /** Extraction model id used this run; recorded on the RunRecord. */
+  model: string;
   promptHash: string;
-  temperature: number;
+  /** Temperature actually sent, or null when the model ran at its default. */
+  temperature: number | null;
   run: number;
   runs: number;
   perDoc: DocExtraction[];
@@ -262,6 +276,7 @@ export function assembleRunRecord(input: {
   const predicted = input.perDoc.flatMap((d) => d.events);
   return {
     caseId: input.caseId,
+    model: input.model,
     promptHash: input.promptHash,
     temperature: input.temperature,
     run: input.run,

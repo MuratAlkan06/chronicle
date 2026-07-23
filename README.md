@@ -1,5 +1,7 @@
 # Chronicle
 
+[![CI](https://github.com/MuratAlkan06/chronicle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MuratAlkan06/chronicle/actions/workflows/ci.yml)
+
 A drag-and-drop tool that turns scattered medical PDFs into a chronological timeline with verbatim source attribution.
 
 > Patients have 30 documents from 5 doctors and no one ties them together. Chronicle is the throughline.

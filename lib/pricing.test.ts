@@ -66,3 +66,16 @@ test("estimateCost: default model is claude-sonnet-4-6 and is priced", () => {
 test("estimateCost: unknown model throws (fail loud, don't guess a price)", () => {
   assert.throws(() => estimateCost(SAMPLE, "claude-imaginary-9"), /no pricing table/);
 });
+
+test("MODEL_PRICING: Opus 4.7 escape-hatch row priced at verified $5/$25 rate card", () => {
+  // Pins the Case 3 escape-hatch model so estimateCost no longer throws on an
+  // opus run and the cost math uses the real rates (verified 2026-07-23).
+  const p = MODEL_PRICING["claude-opus-4-7"];
+  assert.ok(p, "opus-4-7 must have a pricing row");
+  assert.equal(p.inputPerMTok, 5);
+  assert.equal(p.outputPerMTok, 25);
+  assert.equal(p.cacheWrite5mPerMTok, 6.25); // 1.25 x 5
+  assert.equal(p.cacheReadPerMTok, 0.5); // 0.10 x 5
+  // No throw when pricing an opus run directly (was the cycle-18 issue #2).
+  assert.equal(estimateCost(SAMPLE, "claude-opus-4-7").model, "claude-opus-4-7");
+});

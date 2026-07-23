@@ -4,7 +4,9 @@
  *
  * What it does, per run:
  *   1. Extract every held_out/case3/docs/*.pdf via the SAME extractor the live
- *      /api/eval route uses (lib/claude extractDocWithUsage, temperature 0).
+ *      /api/eval route uses (lib/claude extractDocWithUsage). Temperature is
+ *      pinned to 0 for models that accept it and OMITTED for post-Opus-4.6
+ *      models (they 400 on a non-default value) — see --model below.
  *   2. Evaluate predicted vs held_out/case3/ground_truth.json (lib/eval).
  *   3. Persist an audit JSON into held_out/case3/eval_runs/ in the existing
  *      eval_run format (+ token usage).
@@ -21,8 +23,13 @@
  * Usage:
  *   npx tsx scripts/eval-case3.ts                 # case3, 3 runs (the deliverable)
  *   npx tsx scripts/eval-case3.ts --runs 5        # case3, 5 runs
+ *   npx tsx scripts/eval-case3.ts --model claude-opus-4-7   # case3 escape hatch
  *   npx tsx scripts/eval-case3.ts --dry-run       # list docs, no API calls
  *   npx tsx scripts/eval-case3.ts case1 --runs 2 --runs-dir /tmp/x   # dev machinery check
+ *
+ * --model <id> overrides the extraction model (default: lib/claude ACTIVE_MODEL).
+ * The recorded run's `model` field and its `temperature` (0 or null-for-default)
+ * reflect what was actually sent.
  *
  * The case1/case2 mode runs the identical N-run machinery against a dev case
  * (data/cases/<id>) WITHOUT the held-out hygiene gates — dev cases are not
@@ -47,7 +54,11 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import pLimit from "p-limit";
 import { z } from "zod";
-import { extractDocWithUsage } from "../lib/claude";
+import {
+  extractDocWithUsage,
+  ACTIVE_MODEL,
+  supportsTemperaturePin,
+} from "../lib/claude";
 import { type GtEvent, type TierResult } from "../lib/eval";
 import {
   assembleRunRecord,
@@ -63,7 +74,6 @@ import { EventTypeSchema, DateConfidenceSchema } from "../lib/schema";
 
 const CONCURRENCY = 8; // mirror /api/eval + BACKEND-STANDARDS J.3
 const DEFAULT_RUNS = 3;
-const MODEL_VERSION = "claude-sonnet-4-6";
 const ACTIVE_PROMPT = "prompts/system_extract_v4.md";
 
 // ---------------------------------------------------------------------------
@@ -181,6 +191,7 @@ async function runOnce(
   cfg: CaseConfig,
   pdfFiles: string[],
   runIndex: number,
+  model: string,
 ): Promise<DocOutcome[]> {
   const limit = pLimit(CONCURRENCY);
   // Promise.all preserves input (doc) order regardless of completion order, so
@@ -201,7 +212,7 @@ async function runOnce(
           return { docId, ok: false, events: [], usage: ZERO_USAGE, error };
         }
         try {
-          const { events, usage } = await extractDocWithUsage(buffer, docId, filename);
+          const { events, usage } = await extractDocWithUsage(buffer, docId, filename, { model });
           console.log(`[eval-case3] run ${runIndex} doc=${docId} events=${events.length}`);
           return { docId, ok: true, events, usage };
         } catch (err) {
@@ -239,6 +250,7 @@ function parseArgs(argv: string[]): {
   caseId: CaseId;
   runs: number;
   runsDir: string | null;
+  model: string | null;
   dryRun: boolean;
 } {
   const positional = argv.filter((a) => !a.startsWith("--"));
@@ -264,14 +276,37 @@ function parseArgs(argv: string[]): {
     runsDir = argv[dirIdx + 1];
   }
 
-  return { caseId: caseArg, runs, runsDir, dryRun: argv.includes("--dry-run") };
+  // --model <id>: override the extraction model (default lib/claude ACTIVE_MODEL).
+  // The Case 3 escape hatch (docs/BUILD.md, EVAL.md §6) runs `--model
+  // claude-opus-4-7`; temperature is pinned or omitted automatically per model.
+  let model: string | null = null;
+  const modelIdx = argv.indexOf("--model");
+  if (modelIdx !== -1) {
+    if (!argv[modelIdx + 1]) fail("--model expects a model id");
+    model = argv[modelIdx + 1];
+  }
+
+  return {
+    caseId: caseArg,
+    runs,
+    runsDir,
+    model,
+    dryRun: argv.includes("--dry-run"),
+  };
 }
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  const { caseId, runs, runsDir, dryRun } = parseArgs(argv);
+  const { caseId, runs, runsDir, model: modelArg, dryRun } = parseArgs(argv);
   const cwd = process.cwd();
   const cfg = resolveConfig(caseId, cwd, runsDir);
+
+  // Resolve the extraction model + whether temperature can be pinned for it.
+  // pinnedTemp is 0 for models that accept temperature, null (= model default)
+  // for post-Opus-4.6 models — recorded verbatim in each run + the summary.
+  const model = modelArg ?? ACTIVE_MODEL;
+  const pinnedTemp: number | null = supportsTemperaturePin(model) ? 0 : null;
+  const tempLabel = pinnedTemp === null ? "default" : String(pinnedTemp);
 
   if (!existsSync(cfg.docsDir)) {
     fail(`docs dir not found: ${cfg.docsDir}`);
@@ -288,7 +323,7 @@ async function main(): Promise<void> {
 
   if (dryRun) {
     console.log(
-      `[eval-case3] DRY RUN — case=${cfg.caseId} runs=${runs} docs=${pdfFiles.length} runsDir=${cfg.runsDir} heldOut=${cfg.heldOut}`,
+      `[eval-case3] DRY RUN — case=${cfg.caseId} runs=${runs} docs=${pdfFiles.length} model=${model} temp=${tempLabel} runsDir=${cfg.runsDir} heldOut=${cfg.heldOut}`,
     );
     for (const name of pdfFiles) console.log(`[eval-case3] would extract ${name}`);
     console.log("[eval-case3] dry run complete — no API calls made");
@@ -323,7 +358,7 @@ async function main(): Promise<void> {
 
   mkdirSync(cfg.runsDir, { recursive: true });
   console.log(
-    `[eval-case3] case=${cfg.caseId} runs=${runs} docs=${pdfFiles.length} model=${MODEL_VERSION} temp=0 prompt=${promptHash.slice(0, 7)}`,
+    `[eval-case3] case=${cfg.caseId} runs=${runs} docs=${pdfFiles.length} model=${model} temp=${tempLabel} prompt=${promptHash.slice(0, 7)}`,
   );
 
   const runMetrics: RunMetrics[] = [];
@@ -331,7 +366,7 @@ async function main(): Promise<void> {
   const runUsages: ExtractUsage[] = [];
 
   for (let i = 1; i <= runs; i++) {
-    const outcomes = await runOnce(cfg, pdfFiles, i);
+    const outcomes = await runOnce(cfg, pdfFiles, i, model);
 
     // Degenerate-run guard (issue #7): NEVER persist a zero-success run. Abort
     // the whole invocation loudly BEFORE writing this run file; because fail()
@@ -351,8 +386,9 @@ async function main(): Promise<void> {
       .map((o) => ({ docId: o.docId, error: o.error ?? "unknown" }));
     const record = assembleRunRecord({
       caseId: cfg.caseId,
+      model,
       promptHash,
-      temperature: 0,
+      temperature: pinnedTemp,
       run: i,
       runs,
       perDoc: outcomes
@@ -409,8 +445,8 @@ async function main(): Promise<void> {
       {
         generatedAt: new Date().toISOString(),
         caseId: cfg.caseId,
-        model: MODEL_VERSION,
-        temperature: 0,
+        model,
+        temperature: pinnedTemp,
         promptHash,
         runs,
         summary,
