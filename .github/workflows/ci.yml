@@ -1,0 +1,58 @@
+name: CI
+
+# Runs on PRs and on pushes to main. The three blocking jobs (typecheck, test,
+# build) are the same commands used locally and gate merges once the orchestrator
+# turns on branch protection.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: CI only needs to read the repo.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref (e.g. rapid PR pushes).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No .nvmrc / package.json engines in the repo → pin the current Node LTS.
+      # 22.x (Jod) covers the Next 16 / React 19 / tsx toolchain.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- Blocking gates (must pass to merge) ---
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # --- Informational (non-blocking) ---
+      # Lint has a large PRE-EXISTING baseline (~1493 problems / 21 errors) in
+      # untouched files. It runs for visibility but does not gate merges yet.
+      # TODO: drop continue-on-error and make this blocking once the baseline is
+      # cleaned (target: 0 errors).
+      - name: Lint (informational)
+        run: npm run lint
+        continue-on-error: true
