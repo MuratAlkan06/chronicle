@@ -118,7 +118,7 @@ Per-event-type breakdown: run `evaluate` filtered to each `event_type`. Display 
 
 Renders:
 - **Header:** "Evaluation — held-out Case 3 (David Park)"
-- **Methodology blurb (collapsible):** strict/loose definitions, OOS rule, "labels written before prompt iteration began" sentence, prompt-version git hash.
+- **Methodology blurb (collapsible):** strict/loose definitions, OOS rule, the held-out claim ("Case 3 was never used in prompt iteration; its ground truth was authored independently of model output on Case 3, hash-locked in commit 59ca076 before the prompt was ever run against Case 3 — first recorded measurement 2026-05-10T18:33:16Z"), prompt-version git hash.
 - **Live extraction strip:** docs animating in as they complete (small badges).
 - **Two big metric cards:** Strict precision/recall/F1, Loose precision/recall/F1.
 - **Per-event-type table:** rows = event_type, cols = strict P/R, loose P/R.

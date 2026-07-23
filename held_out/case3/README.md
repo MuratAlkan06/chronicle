@@ -1,18 +1,18 @@
 # Case 3 — HELD-OUT
 
-> **STATUS (2026-05-10): DEFERRED.** Pre-H0 Block 1 (PDFs) and Block 2 (GT labels)
-> are consciously deferred per Murat. Deadline: **before H8 of the build clock**
-> (the prompt-iteration hour). At H8, two paths:
-> - **Path A** — labeling done by then → lock it (hash + chmod + commit), proceed
->   with normal H8–H9 prompt iteration, demo beat 3 works at H11.
-> - **Path B** — labeling NOT done → freeze the prompt where it is, skip H8–H9
->   prompt iteration entirely (iterating with Case 3 still unlabeled would
->   contaminate the held-out story if labels are added later), use freed time
->   for polish, demo becomes 3-beat (drop beat 3).
+> **STATUS (updated 2026-07-22): LABELED, LOCKED, EVALUATED.** Path A was taken
+> (see `docs/RESOLVED-DECISIONS.md` §9 for the original two-path reasoning). Case
+> 3's 8 PDFs and ground-truth labels were authored (GT `labeled_at`
+> 2026-05-10T15:33:19Z), then hash-locked in commit `59ca076` before the prompt
+> was ever run against Case 3. Case 3 was never used in prompt iteration. The
+> held-out evaluation then ran twice under frozen prompt v4 (first recorded
+> measurement 2026-05-10T18:33:16Z); the results and the dev→held-out gap
+> analysis live in the repo README ("Held-out Case 3 results"). Phase A (issue
+> #7) now works that gap.
 >
-> See `docs/RESOLVED-DECISIONS.md` §9 for the full reasoning. The folder scaffold
-> below stands; future sessions should still treat any future Case 3 content as
-> held-out per the rules below.
+> The held-out discipline is NOT retired — it binds every future session. Do not
+> re-open the PDFs, do not read `ground_truth.json`, and do not use Case 3 in any
+> prompt iteration. The rules below still stand.
 
 **STOP. Do NOT open the PDFs in this directory.**
 **STOP. Do NOT read `ground_truth.json`.**

@@ -2,7 +2,7 @@
 
 Cross-session contract: frontend session imports these as fixtures while backend builds the real extraction pipeline. Backend should generate identical-shape responses against the same cases.
 
-**Cases 1+2 are real fixtures** — used by the demo at `/app` and as the basis for cached preset responses at H7. These represent the schema-correct extraction output Murat should aim for. The narrative arcs match [docs/CASES.md](docs/CASES.md).
+**Cases 1+2 are usable fixtures** (Case 3 below is a shape-only mock) — AI-generated during the planning session and used by the demo at `/app`, as the basis for the Cases 1+2 gold labels (`data/cases/case{1,2}/ground_truth.json`, derived at cycle 7), and for cached preset responses at H7. These represent the schema-correct extraction output Murat should aim for. The narrative arcs match [docs/CASES.md](docs/CASES.md).
 
 **Case 3 is a SHAPE-ONLY MOCK** — labeled `mock_only_not_eval_data: true`. Used to scaffold `/eval` UI ONLY. **Does not predict actual ground-truth or model output.** Real Case 3 extraction runs live at H11 per the held-out discipline. Predicting Case 3 events here would be a held-out hygiene violation.
 

@@ -125,9 +125,9 @@ export default function EvalPage() {
           </h1>
           <p className="mt-5 max-w-[58ch] text-[16px] leading-relaxed text-ink-muted">
             Chronicle was evaluated on three patient cases. Cases 1+2 were used
-            during prompt iteration; Case 3 was held out — labeled before any
-            prompt change and never seen by the model until this page is
-            opened.
+            during prompt iteration; Case 3 was held out — never used in prompt
+            iteration, its ground truth labeled and hash-locked before the model
+            was ever run against it (first recorded run 2026-05-10).
           </p>
         </section>
 
@@ -562,13 +562,14 @@ function Report({
             (≥0.5).
           </p>
           <p>
-            Ground-truth labels for Cases 1 + 2 were derived from the source
-            PDFs and locked before prompt iteration. Case 3 ground truth was
-            written before any prompt change and is hash-locked at
+            Ground-truth labels for Cases 1 + 2 were derived from their
+            fixtures and locked before prompt iteration. Case 3 was never used
+            in prompt iteration; its ground truth was labeled and hash-locked at
             <code className="mx-1 rounded-sm bg-base px-1 py-[1px] font-mono text-[11px]">
               held_out/case3/.gt_hash.lock
             </code>
-            — the eval route refuses to run if the file has been modified.
+            before the model was ever run against it — the eval route refuses
+            to run if the file has been modified.
           </p>
           {promptVersion ? (
             <p>

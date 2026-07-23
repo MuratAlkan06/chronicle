@@ -82,9 +82,26 @@ npx tsx scripts/validate-gt.ts
 The headline credibility surface is `/eval`. The discipline behind it:
 
 - **Two-tier matching** (per [docs/EVAL.md](docs/EVAL.md)): _strict_ requires same `event_type` + exact date + ≥0.5 title token-overlap; _loose_ requires same `event_type` + date within ±3 days + ≥0.5 token-overlap. Both numbers are shown — strict is conservative, loose accounts for the date-fuzziness real patients describe.
-- **Held-out Case 3.** PDFs and ground-truth labels were authored by hand before any prompt iteration began. The GT file is hash-locked: `held_out/case3/.gt_hash.lock` records `git hash-object` of the GT file at H0; `/api/eval?mode=live` recomputes the hash at request time and refuses to run on mismatch. The active prompt's git hash is logged to `held_out/case3/prompt_hash.txt` before each Case 3 run, and `prompts/` must have no uncommitted changes — the prompt that produced any reported metric is reproducible from a single git commit.
+- **Held-out Case 3.** Case 3 was never used in prompt iteration; its ground truth was authored independently of model output on Case 3, hash-locked in commit `59ca076` before the prompt was ever run against Case 3 (first recorded measurement `2026-05-10T18:33:16Z`). The GT file is hash-locked: `held_out/case3/.gt_hash.lock` records `git hash-object` of the GT file; `/api/eval?mode=live` recomputes the hash at request time and refuses to run on mismatch. The active prompt's git hash is logged to `held_out/case3/prompt_hash.txt` before each Case 3 run, and `prompts/` must have no uncommitted changes — the prompt that produced any reported metric is reproducible from a single git commit.
 - **Prompt iteration on Cases 1+2 only.** Per-version log in [`prompts/CHANGELOG.md`](prompts/CHANGELOG.md). Iteration ran v1→v4, one targeted change per version (cross-doc reference rule → terse visit-title format → full per-type Title spec inlined). Average strict F1 across Cases 1+2 moved 0.555 → 0.825 (+27pt). Stop conditions per [docs/EVAL.md](docs/EVAL.md): C2 hit ≥0.85 P/R at v2; C1 hit R=0.92 at v4 with P capped by GT-labeling judgments on referrals not in GT and one doc-author dose-discrepancy edge case.
 - **Verbatim-snippet enforcement.** Every event ships with a `source.snippet` that downstream code (`lib/match.ts` + `lib/normalize.ts`) sliding-window-matches against the PDF text-layer after NFKC + dehyphenation + whitespace collapse. On match failure the event renders with a "source not pinpointed" badge — never silently dropped, never auto-retried (Q14).
+
+## Held-out Case 3 results
+
+The 0.825 average strict F1 above is a **dev-set** number (Cases 1+2). The held-out number is lower, and that gap is what Phase A works on.
+
+Prompt v4 (hash `f32ebd0`, Sonnet 4.6, API default temperature, no seed) was run twice against Case 3 (`n_gt = 20` in-scope ground-truth events):
+
+| Run (UTC) | Tier | P | R | F1 | tp / fp / fn |
+|---|---|---|---|---|---|
+| 2026-05-10T18:33:16Z | strict | 0.42 | 0.40 | 0.41 | 8 / 11 / 12 |
+| 2026-05-10T18:33:16Z | loose | 0.42 | 0.40 | 0.41 | 8 / 11 / 12 |
+| 2026-05-10T20:15:09Z | strict | 0.45 | 0.45 | 0.45 | 9 / 11 / 11 |
+| 2026-05-10T20:15:09Z | loose | 0.45 | 0.45 | 0.45 | 9 / 11 / 11 |
+
+The same frozen prompt scored 0.41 and 0.45 across the two runs. At API default temperature with no seed, single-run deltas under ~±5 F1 points are within run-to-run noise (at `n_gt = 20`, one event ≈ 5 F1 points), so 0.41 and 0.45 are the same measurement. The loose tier scored identically to strict on both runs — no date-fuzz events were recovered.
+
+**Why the dev→held-out gap (0.825 → 0.45) is expected.** Cases 1+2 are semi-synthetic: their gold labels were *derived from* AI-generated MOCK_DATA fixtures (STATE.md cycle 0 + cycle 7), and their case PDFs were drafted from that same source material, so the dev score partly measures round-trip fidelity of documents the pipeline's own source material produced. Case 3 is the only **organically-authored, independently-labeled** case in the set. Under that asymmetry a large gap is the expected outcome rather than a regression, and closing it is the work of Phase A. The escape-hatch rule (Case 3 strict P or R < 0.5) fired on both runs.
 
 ## Demo flow
 
@@ -101,7 +118,7 @@ See [docs/BUILD.md](docs/BUILD.md) §6 for the full narration script and §H11 f
 
 ## Model swap notes (per Q26)
 
-- **Extraction:** `claude-sonnet-4-6` (model id in `lib/claude.ts`). Escape hatch is `claude-opus-4-7` — one-line model-string swap if Case 3 strict P or R falls below 0.5 at H11; reserved ~$100 budget covers the re-run trivially.
+- **Extraction:** `claude-sonnet-4-6` (model id in `lib/claude.ts`). Escape hatch is `claude-opus-4-7` — one-line model-string swap if Case 3 strict P or R falls below 0.5. This condition **fired on both recorded Case 3 runs** (strict P/R = 0.42/0.40 and 0.45/0.45, all below 0.5) and is being exercised in Phase A (issue #7); reserved ~$100 budget covers the re-run trivially.
 - **Patient explainer:** Gemini Flash 2.5 primary, Haiku 4.5 inline fallback. The fallback fires if `GEMINI_API_KEY` is missing OR if Gemini errors before its first chunk is streamed; if Gemini already streamed text and then failed mid-flight, the route closes the SSE rather than restart Haiku and risk a duplicated answer (`app/api/explain/route.ts`). Both providers failing emits a single SSE error frame with `code: "upstream_unavailable"`.
 - **Embeddings:** Voyage `voyage-3` primary, OpenAI `text-embedding-3-small` fallback on 401/429/network-error/malformed-response (`lib/voyage.ts`). Both-providers-fail emits 502 + `code: "upstream_unavailable"`.
 
