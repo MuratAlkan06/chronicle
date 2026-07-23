@@ -7,10 +7,13 @@
  *  - mode=live (case3 only): SSE stream that runs extraction live, computes
  *    metrics + breakdown, writes audit log under held_out/case3/eval_runs/.
  *
- * Path B (cycle 3 flag): held_out/case3 is currently unpopulated. The
- * gt_not_present sentinel below MUST fire before any extractDoc call so we
- * never accidentally hit the Anthropic API for Case 3 in the deferred-GT
- * world. See docs/RESOLVED-DECISIONS.md §9.
+ * Case 3 held-out data is labeled, hash-locked (commit 59ca076), and evaluated.
+ * mode=live guards run in order before any extractDoc call: gt_not_present (GT
+ * or docs missing), gt_hash_mismatch (GT blob != .gt_hash.lock), prompt_dirty
+ * (uncommitted prompts/), then an isDegenerateRun check emits all_docs_failed
+ * rather than persisting a zero-success run. The cached demo fallback is served
+ * separately by GET /api/eval/fallback. See docs/RESOLVED-DECISIONS.md §9 and
+ * docs/EVAL.md §6.
  */
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

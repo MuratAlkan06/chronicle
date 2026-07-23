@@ -167,7 +167,7 @@ Chronicle is a drag-and-drop tool for medical document timelines. Patients drop 
 | Q | Decision |
 |---|----------|
 | Q17 | **Two-tier display** in `/eval`. **Strict** = event_type + date exact + title token-overlap ≥ 0.5. **Loose** = event_type + date ±3 days + title token-overlap ≥ 0.5. Out-of-scope events excluded from FN denominator, listed separately as "out-of-scope." Both numbers shown. |
-| Q18 | Ground-truth labels for Case 3 written **pre-H0**, in the same sitting as writing the Case 3 PDFs, before any extraction prompt iteration. Locked to a versioned JSON file, not reopened until H11. |
+| Q18 | Ground-truth labels for Case 3 written **pre-H0**, in the same sitting as writing the Case 3 PDFs, before any extraction prompt iteration. Locked to a versioned JSON file, not reopened until H11. **[Superseded — actual ordering: the Case 3 GT was authored *after* prompt iteration finished, not before it — iteration on Cases 1+2 ended 2026-05-10T13:49:58Z, GT labeled 15:33:19Z, hash-locked in commit `59ca076` at 15:50:30Z, first Case 3 measurement 18:33:16Z. The provable claim (L2): Case 3 was never used in prompt iteration and its lock predates any Case 3 measurement. See docs/EVAL.md §6.]** |
 | Q19 | `held_out/case3/` folder with do-not-open README. Separate eval script committed at H0, not edited. Prompt file's git hash logged before first Case 3 run. |
 
 Operational details (matching algorithm, /api/eval flow, labeling step-by-step): [docs/EVAL.md](docs/EVAL.md).

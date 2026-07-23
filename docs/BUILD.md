@@ -26,7 +26,7 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 - Numbers populate. Don't read every number — point at the strict precision card.
 - *Narrate:* "Strict tier: exact event type, exact date. Loose tier: ±3 days, same event type. We measure both because patient timelines aren't medical-record timelines — patients describe dates fuzzily."
 - *Narrate at the breakdown table:* "Per-event-type: labs and imaging are easy because they have explicit dates. Visits and referrals are where ambiguity lives — that's where the loose tier matters."
-- Expand the methodology `<details>` for ~5 seconds, just to show the prompt-hash + labeled-before-iteration line.
+- Expand the methodology `<details>` for ~5 seconds, just to show the prompt-hash + the held-out claim line (Case 3 never used in iteration; GT locked before any Case 3 measurement).
 
 **Beat 4 — Close (3:30 – 4:00, ~30s)**
 - Click browser back to `/app`. Sarah's timeline still visible.
