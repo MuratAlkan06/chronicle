@@ -124,7 +124,13 @@ Renders:
 - **Per-event-type table:** rows = event_type, cols = strict P/R, loose P/R.
 - **Footer note:** "Last run: <ISO timestamp> · Prompt: system_extract_v<N>.md (<git hash short>)"
 
-**Live trigger choice: auto on route entry**, justified above.
+**Live trigger choice: explicit two-step confirm gate (not auto on route entry).**
+The `/eval` live tab opens on the cached fallback and never auto-runs — a real
+held-out run spends the final scored Case 3 measurement event (§6), so it fires
+only after the user clicks "Run live extraction…" and confirms the inline gate
+(`lib/eval-gate.ts`, rendered in `app/eval/page.tsx`). This closed the auto-run
+peek hazard flagged in STATE cycle 17 (issue #9). Cmd+Shift+L reloads the cached
+fallback.
 
 ### CRITICAL: step-by-step for Murat — writing Case 3 ground-truth labels
 
@@ -257,6 +263,15 @@ signal.
 - **No per-event error analysis of Case 3.** Only aggregate P/R/F1 + tp/fp/fn and
   the per-event-type breakdown may be read. Do not open Case 3 PDFs, the ground
   truth, or the per-event `predicted`/matched lists in `eval_runs/*.json`.
+- **Owner decision (2026-07-23): no further hand-labeled held-out cases.** Case 3
+  is the last independently-labeled held-out case; the remaining ≤1 scored
+  measurement event is the **final** confirmatory budget on Chronicle, ever. With
+  no replacement case, spending it accidentally is unrecoverable — so the `/eval`
+  live tab no longer auto-runs on route entry. It opens on the cached fallback and
+  fires a scored run only behind an explicit two-step confirm gate
+  (`lib/eval-gate.ts`, `app/eval/page.tsx`), closing the auto-run peek hazard
+  flagged in STATE cycle 17 (with a valid key, every `/eval` visit was one Case 3
+  run). See docs/RESOLVED-DECISIONS.md §10.
 
 ### Degenerate runs are not measurements (never persisted)
 

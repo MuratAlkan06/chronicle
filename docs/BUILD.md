@@ -21,7 +21,7 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 - Click footer link "View evaluation metrics."
 
 **Beat 3 — /eval page, Case 3 LIVE (1:45 – 3:30, ~105s)**
-- Page mounts on Case 3 tab. Extraction starts immediately on route entry.
+- Page mounts on the Case 3 tab showing the **cached fallback** from the last recorded run — it no longer auto-runs. To go live, click "Run live extraction…" and confirm the two-step gate; this spends the final scored Case 3 measurement (docs/EVAL.md §6), so it's a deliberate beat, not automatic. (In rehearsal, present the cached fallback and skip the confirm so you don't burn the final budget.)
 - *Narrate while doc badges stream in:* "David Park, 38M — chronic low back pain, 5 providers, 8 documents. The model is seeing these PDFs for the first time. Case 3 was never used in prompt iteration — its ground-truth labels were authored and hash-locked before the model was ever run against it."
 - Numbers populate. Don't read every number — point at the strict precision card.
 - *Narrate:* "Strict tier: exact event type, exact date. Loose tier: ±3 days, same event type. We measure both because patient timelines aren't medical-record timelines — patients describe dates fuzzily."
@@ -33,7 +33,7 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 - *Narrate:* "30 documents, 5 doctors, no throughline. Chronicle is the throughline."
 - Pause. Stop talking. Let the timeline be the last image.
 
-**Hotkey for Case 3 fallback:** `Cmd+Shift+L` (mnemonic: "Load cached"). Listener mounted on the `/eval` page only. Pressing it during beat 3 swaps the live stream out and renders the precomputed `data/case3_eval_fallback.json` with the same animation. Trigger condition: if the doc badge counter hasn't incremented for 15 seconds, or if you see a red error toast. Practice this hotkey twice during H11.
+**Hotkey for Case 3 fallback:** `Cmd+Shift+L` (mnemonic: "Load cached"). Listener mounted on the `/eval` page only. The page now **opens** on the precomputed `data/case3_eval_fallback.json`, so the hotkey **reloads** it — the recovery move if a live run you started goes sick (badges stall or a red error card appears). The old "auto-run stalls > 15s" trigger is obsolete: nothing runs until you explicitly confirm the gate. Practice this hotkey twice during H11.
 
 **Narrative pivot at beat 4.** "Throughline" is the close because it inverts the framing: the demo opened with cards (the noun), it closes with the line connecting them (the verb). Don't over-explain. Judges who got it got it; judges who didn't won't be convinced by another sentence.
 
@@ -276,8 +276,8 @@ If Tier 1 (related) is broken: cut and move on. If Tier 1 works but other items 
 - [ ] Side panel closes on X, ESC, and click-outside
 - [ ] Severity colors visually distinct under Chrome DevTools → Rendering → Emulate vision deficiencies → Deuteranopia, then Protanopia (verifies the locked palette in [FRONTEND-STANDARDS.md](FRONTEND-STANDARDS.md) §H.1; specifically that concerning `#DC2626` and urgent `#991B1B` — both reds — remain distinguishable; swap urgent only to `#7F1D1D` if they collapse)
 - [ ] Footer "View evaluation metrics" link navigates to `/eval`
-- [ ] On `/eval`: GT integrity hash check passes silently (no error frame), prompt-hash log writes, extraction starts automatically on route entry, doc badges stream in, metrics populate, breakdown table renders
-- [ ] Cmd+Shift+L hotkey triggers cached fallback on `/eval` (test deliberately, then refresh to confirm live mode also works)
+- [ ] On `/eval`: the Case 3 tab opens on the cached fallback (no auto-run); clicking "Run live extraction…" + confirming the gate starts the held-out run — GT integrity hash check passes silently (no error frame), prompt-hash log writes, doc badges stream in, metrics populate, breakdown table renders
+- [ ] Cmd+Shift+L hotkey reloads the cached fallback on `/eval` (test deliberately; the live run is triggered separately via the confirm gate, not on refresh)
 - [ ] Methodology `<details>` section expands and shows prompt-version git hash
 - [ ] Total demo time is in the 3:30-4:00 window
 - [ ] Practice the narration aloud (not just in your head — saying it surfaces awkward phrasing)

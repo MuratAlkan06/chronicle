@@ -178,7 +178,7 @@ Operational details (matching algorithm, /api/eval flow, labeling step-by-step):
 
 | Q | Decision |
 |---|----------|
-| Q20 | **Hybrid.** Cases 1+2 served from precomputed `events.json` with 1.5s artificial delay for "feel." Case 3 runs **live** when the judge navigates to `/eval` — the routing transition is the dramatic beat; numbers populate as extraction completes. Precomputed Case 3 fallback hidden behind a hotkey if API stalls > 15s. |
+| Q20 | **Hybrid.** Cases 1+2 served from precomputed `events.json` with 1.5s artificial delay for "feel." Case 3 runs **live** when the judge navigates to `/eval` — the routing transition is the dramatic beat; numbers populate as extraction completes. Precomputed Case 3 fallback hidden behind a hotkey if API stalls > 15s. **[Superseded 2026-07-23 — live run now behind an explicit two-step confirm gate that opens on the cached fallback; Cmd+Shift+L reloads that fallback rather than swapping on a >15s stall. See docs/RESOLVED-DECISIONS.md #10 + docs/EVAL.md §6.]** |
 
 ### Demo flow (4 beats — high-level)
 
@@ -240,7 +240,7 @@ Q11 routing means `/eval` needs at minimum:
 - Strict + loose precision/recall numbers (Cases 1, 2, 3 stacked)
 - Per-event-type breakdown table (precision/recall per type)
 - Methodology blurb (1 paragraph: what counts as a match, held-out discipline, label provenance)
-- Case 3 "Run live" trigger button (or auto-run on route entry)
+- Case 3 "Run live" trigger button (or auto-run on route entry) **[Superseded 2026-07-23 — the trigger is an explicit two-step confirm gate; auto-run on route entry was rejected (a casual visit would spend the final scored Case 3 measurement). See docs/RESOLVED-DECISIONS.md #10 + docs/EVAL.md §6.]**
 
 Budget **~1.5 hr** for `/eval`. Not on the cut list today, but at H10 triage: ugly-but-correct table is acceptable; only the Case 3 live-run is essential.
 

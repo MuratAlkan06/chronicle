@@ -8,7 +8,7 @@
 
 LOCKED. Mnemonic "Load cached." Unbound in Chrome and Arc on Mac. No conflict with Cmd+L (URL bar).
 
-Implementation: bind globally on the `/eval` route only. Triggers swap from live Case 3 extraction to precomputed `events.json` fallback if API stalls > 15s.
+Implementation: bind globally on the `/eval` route only. Reloads the precomputed Case 3 cached fallback (`data/case3_eval_fallback.json`, served via `GET /api/eval/fallback`) — the presenter's escape back to the recorded run. (Since cycle 20 / §10 the live tab opens on this fallback and never auto-runs; a scored live run fires only behind the explicit confirm gate, so the hotkey is a fallback *reload*, not the old "swap on a >15s API stall".)
 
 ---
 
@@ -168,3 +168,15 @@ LOCKED. Pre-H0 Blocks 1 + 2 are consciously deferred. Murat may complete the lab
 **Folder scaffold landed in this cycle:** `held_out/case3/README.md` (with deferred-status banner pointing here), `held_out/case3/ground_truth.json` (shape-stub template), `held_out/case3/docs/.gitkeep` (PDFs go here when Murat is ready).
 
 **No other doc/code surfaces changed.** The held-out architecture was already designed for "GT might not exist yet" — this just exercises that path explicitly.
+
+---
+
+### 10. No further hand-labeled held-out cases — `/eval` live run gated behind explicit confirm (added 2026-07-23)
+
+LOCKED. Owner decision (Murat): Case 3 is the **last** independently hand-labeled held-out case — there will be no Case 4. The reasoning that made Case 3 the standard (§9: held-out eval is model-vs-human, not model-vs-model; honest labeling needs a focused, drift-free sitting) also makes new held-out cases expensive to author correctly, and the methodology story is already carried by the three scored Case 3 measurements (two Sonnet 2026-05-10, one Opus 2026-07-23 — see EVAL.md §6 + README).
+
+**The peek budget is now terminal.** The remaining **≤1 scored measurement event** on Case 3 (one event = up to 3 runs, mean±range) is the **final** confirmatory budget on Chronicle, ever. With no replacement case, an accidental scored run is unrecoverable — it permanently consumes the last held-out signal.
+
+**Hazard closed (STATE cycle 17, issue #9).** The pre-existing `/eval` live tab **auto-ran** the Case 3 SSE extraction on route entry (`useEffect(() => start(), [])`). With a valid `ANTHROPIC_API_KEY`, **every visit to `/eval` was one Case 3 run** — a demo or casual page load could silently spend the terminal budget. (The degenerate-run guard in EVAL.md §6 only stops *empty*-key runs from persisting; a valid-key auto-run is a real measurement.)
+
+**Resolution.** `/eval` no longer auto-runs. The live tab opens on the cached fallback (`data/case3_eval_fallback.json` via `GET /api/eval/fallback`); a scored held-out run fires only behind an explicit **two-step inline confirm gate** — step 1 "Run live extraction…", step 2 an inline confirm that states plainly it spends the final scored Case 3 measurement, with a cancel escape and no native `window.confirm`. The gate is hidden while a run streams so it cannot double-fire. Pure state logic lives in `lib/eval-gate.ts` (`nextGatePhase` + `shouldStartRun`, unit-tested in `lib/eval-gate.test.ts`), rendered by `app/eval/page.tsx`; `scripts/eval-case3.ts` remains the deliberate CLI path for a measured run. Cross-reference: **docs/EVAL.md §6** (peek budget + owner-decision note).
