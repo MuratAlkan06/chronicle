@@ -172,6 +172,12 @@ Footer "View evaluation metrics" link → router.push("/eval")
   - Tab 1: "Cases 1+2 (training)" — static report from /api/eval?mode=cached
   - Tab 2: "Case 3 (held-out)" — DEFAULT TAB
       On mount:
+        GET /api/eval/fallback → open on the cached fallback
+          (no auto live-run: zero /api/eval?...mode=live requests on mount)
+        Render metric cards + per-event-type table from the cached result
+      Two-step confirm gate (LiveRunGate, shown when not running):
+        "Run live extraction…" → inline confirm (spends the final scored
+          Case 3 measurement, EVAL.md §6) → on Confirm, start():
         EventSource('/api/eval?case=case3&mode=live')
         Render skeleton table: docs streaming in (left col),
           strict metrics (top-right), loose metrics (bottom-right),
@@ -181,11 +187,11 @@ Footer "View evaluation metrics" link → router.push("/eval")
       On {type:"done"}: lock numbers, show "Last run: <timestamp>"
   - Methodology blurb (collapsible <details>): strict vs loose definition,
       OOS exclusion rule, ground-truth labeling protocol summary
-  - Hotkey listener: Cmd+Shift+L → swap to cached Case 3 fallback
-      (set state from precomputed /data/case3_eval_fallback.json)
+  - Hotkey listener: Cmd+Shift+L → reload cached Case 3 fallback
+      (GET /api/eval/fallback)
 ```
 
-**Live-trigger choice: auto on route entry**, not a button. Reasoning: the *transition itself* is the dramatic beat (Q20 beat 2→3). A button adds an extra click and breaks the "and here's how we know it works" flow. The hotkey covers the "API stalled >15s" failure mode without the judge ever knowing.
+**Live-trigger choice: explicit two-step confirm gate (not auto on route entry).** The original call was auto-run on mount: the *transition itself* is the dramatic beat (Q20 beat 2→3), a button adds an extra click, and the hotkey covered the "API stalled >15s" failure mode without the judge ever knowing. **That tradeoff was reversed** once Case 3 became the *final* remaining scored held-out measurement event ([RESOLVED-DECISIONS.md](RESOLVED-DECISIONS.md) #10, [EVAL.md](EVAL.md) §6): with no replacement case, a valid `ANTHROPIC_API_KEY` turned every casual `/eval` visit into one irreversible spend of that terminal budget — and an unrecoverable measurement outweighs the demo beat. So the live tab now **opens on the cached fallback** (`GET /api/eval/fallback`) and fires a scored run only behind a two-step gate (`lib/eval-gate.ts`, rendered in `app/eval/page.tsx`): step 1 "Run live extraction…", step 2 an inline confirm that states it spends the final Case 3 measurement, with a cancel escape. `Cmd+Shift+L` now *reloads* that cached fallback rather than swapping on a stall.
 
 **Matching computation.** Runs server-side in the route handler after extraction completes for Case 3, OR client-side after `done` if you want to render predicted events live and metrics-after. Recommend **server-side, streamed** — sends a `metric` SSE frame per tier as soon as the count is computable. Algorithm in [EVAL.md](EVAL.md).
 

@@ -4,18 +4,25 @@
  * /eval — methodology page (BUILD.md H8).
  *
  * Two tabs: Cases 1+2 cached (precomputed reports) and Case 3 live (held-out
- * SSE evaluation). Live tab is default per BUILD.md beat 3 of the demo flow.
- * Case 3 is now labeled, hash-locked, and evaluated, so the live tab runs a
- * real held-out SSE extraction (gt_not_present degrades only if it goes missing).
+ * SSE evaluation). The live tab OPENS on the cached fallback and never auto-runs:
+ * a real held-out SSE extraction spends the FINAL remaining scored Case 3
+ * measurement event (docs/EVAL.md §6), so it fires only behind an explicit
+ * two-step confirm gate (see lib/eval-gate.ts). Pre-run guards still degrade
+ * gracefully (gt_not_present, gt_hash_mismatch, prompt_dirty, all_docs_failed).
  *
- * Cmd+Shift+L hotkey swaps the live tab to the cached backup the demo presenter
- * triggers if the live run is sick. The canonical file is
- * data/case3_eval_fallback.json, served via GET /api/eval/fallback (repo-root
- * data/ is not statically served by Next).
+ * Cmd+Shift+L reloads the cached fallback (data/case3_eval_fallback.json, served
+ * via GET /api/eval/fallback — repo-root data/ is not statically served by Next),
+ * the backup the demo presenter returns to if a live run is sick.
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -24,6 +31,13 @@ import {
   Loader2,
 } from "lucide-react";
 import type { EventType } from "@/lib/schema";
+import {
+  nextGatePhase,
+  shouldStartRun,
+  canConfirm,
+  ARM_GUARD_MS,
+  type GatePhase,
+} from "@/lib/eval-gate";
 import { DisclaimerFooter } from "@/components/disclaimer-footer";
 
 type CaseId = "case1" | "case2" | "case3";
@@ -138,7 +152,7 @@ export default function EvalPage() {
             active={tab === "live"}
             onClick={() => setTab("live")}
             label="Case 3 — live (held-out)"
-            sub="Run on first view"
+            sub="Run on demand"
           />
           <TabButton
             active={tab === "cached"}
@@ -274,7 +288,16 @@ function CachedPanel() {
 
 function LivePanel() {
   const [state, setState] = useState<LiveEvalState>(initialLive);
+  const [gatePhase, setGatePhase] = useState<GatePhase>("idle");
+  // Timestamp (ms) the gate was armed, or null when idle. Feeds the pure arming
+  // guard (canConfirm) so a held/double Enter can't arm AND fire in one motion.
+  const [armedAt, setArmedAt] = useState<number | null>(null);
+  // Flips true once the arming-guard window elapses; keeps Confirm disabled til then.
+  const [guardCleared, setGuardCleared] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const armButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const running = state.status === "running";
 
   const start = useCallback(() => {
     abortRef.current?.abort();
@@ -342,9 +365,11 @@ function LivePanel() {
       });
   }, []);
 
-  // Auto-start on mount + Cmd+Shift+L hotkey
+  // Open on the cached fallback (never auto-run a scored live measurement) and
+  // keep Cmd+Shift+L as a "reload the cached fallback" escape. The live held-out
+  // run fires only through the explicit two-step gate below — not on mount.
   useEffect(() => {
-    start();
+    loadFallback();
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
@@ -356,10 +381,95 @@ function LivePanel() {
       window.removeEventListener("keydown", onKey);
       abortRef.current?.abort();
     };
-  }, [start, loadFallback]);
+  }, [loadFallback]);
+
+  const handleArm = useCallback(() => {
+    setGatePhase(nextGatePhase("arm"));
+    setGuardCleared(false);
+    setArmedAt(Date.now());
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    setGatePhase(nextGatePhase("cancel"));
+    setArmedAt(null);
+    setGuardCleared(false);
+  }, []);
+
+  // Two-step confirm with two independent guards: the arming guard (canConfirm)
+  // makes Confirm inert for ARM_GUARD_MS after arming so a key-repeat/double
+  // Enter physically cannot fire it; shouldStartRun keeps the run armed-only and
+  // single-flight. The final scored Case 3 measurement can never fire on mount,
+  // from a double click, or from a held Enter carried onto the reused node.
+  const handleConfirm = useCallback(() => {
+    if (armedAt === null || !canConfirm(armedAt, Date.now())) return;
+    if (shouldStartRun(gatePhase, running)) start();
+    setGatePhase(nextGatePhase("confirm"));
+    setArmedAt(null);
+    setGuardCleared(false);
+  }, [gatePhase, running, start, armedAt]);
+
+  // Arming-guard timer: hold Confirm disabled for ARM_GUARD_MS after each arm,
+  // then enable it. Re-scheduled on every fresh arm (armedAt changes).
+  useEffect(() => {
+    if (armedAt === null) return;
+    const t = setTimeout(() => setGuardCleared(true), ARM_GUARD_MS);
+    return () => clearTimeout(t);
+  }, [armedAt]);
+
+  // Escape cancels an armed gate (armed → idle); listener is bound only while
+  // armed, so it has no effect in any other phase.
+  useEffect(() => {
+    if (gatePhase !== "armed") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [gatePhase, handleCancel]);
+
+  // Focus management (the safety half of fix #1): after arming, focus must NOT
+  // rest on Confirm — React reuses the arm button's node for Confirm, carrying
+  // focus. Move focus to the safe Cancel default on arm; return it to the arm
+  // button on cancel/Escape. Never fires on the initial idle mount.
+  const prevPhaseRef = useRef<GatePhase>(gatePhase);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = gatePhase;
+    if (gatePhase === "armed" && prev !== "armed") {
+      cancelButtonRef.current?.focus();
+    } else if (gatePhase === "idle" && prev === "armed") {
+      armButtonRef.current?.focus();
+    }
+  }, [gatePhase]);
+
+  // After a run ends the gate re-appears at idle; return focus to the arm button
+  // so keyboard focus isn't stranded on <body>. Skips the first mount.
+  const prevRunningRef = useRef(running);
+  useEffect(() => {
+    const prev = prevRunningRef.current;
+    prevRunningRef.current = running;
+    if (prev && !running) armButtonRef.current?.focus();
+  }, [running]);
 
   return (
     <div>
+      {/* Live-run gate — the ONLY trigger for a scored held-out run. Hidden
+          while a run streams so it cannot be re-fired (no double runs). */}
+      {!running ? (
+        <LiveRunGate
+          phase={gatePhase}
+          confirmDisabled={!guardCleared}
+          armButtonRef={armButtonRef}
+          cancelButtonRef={cancelButtonRef}
+          onArm={handleArm}
+          onCancel={handleCancel}
+          onConfirm={handleConfirm}
+        />
+      ) : null}
+
       {/* Streaming doc badges */}
       {state.docs.length > 0 ? (
         <div className="mb-8 flex flex-wrap items-center gap-2">
@@ -398,7 +508,6 @@ function LivePanel() {
         <LiveErrorBlock
           code={state.errorCode}
           message={state.errorMessage}
-          onRetry={start}
           onFallback={loadFallback}
         />
       ) : null}
@@ -415,8 +524,100 @@ function LivePanel() {
       ) : null}
 
       <p className="mt-12 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-subtle">
-        Press ⌘+⇧+L to load the cached fallback
+        Press ⌘+⇧+L to reload the cached fallback
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Live-run gate — two-step inline confirm. The live held-out run spends the
+// FINAL remaining scored Case 3 measurement event (docs/EVAL.md §6), so it is
+// never auto-run and never one click. No native window.confirm — inline only.
+// ---------------------------------------------------------------------------
+
+function LiveRunGate({
+  phase,
+  confirmDisabled,
+  armButtonRef,
+  cancelButtonRef,
+  onArm,
+  onCancel,
+  onConfirm,
+}: {
+  phase: GatePhase;
+  confirmDisabled: boolean;
+  armButtonRef: RefObject<HTMLButtonElement | null>;
+  cancelButtonRef: RefObject<HTMLButtonElement | null>;
+  onArm: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (phase === "armed") {
+    return (
+      <div className="mb-10 rounded-md border border-sev-concerning/40 bg-sev-concerning/[0.04] p-6">
+        {/* Eyebrow uses the darker severity token (sev-urgent #991B1B) so the
+            label clears 4.5:1 on the tinted card — the concerning red (#DC2626)
+            only reaches ~4.36:1 here. Card border/tint stay sev-concerning. */}
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-sev-urgent">
+          Confirm live run
+        </p>
+        <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em] text-ink">
+          This spends the final scored Case 3 measurement.
+        </h3>
+        <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-ink-muted">
+          The live held-out extraction consumes the last remaining scored Case 3
+          measurement event — the final confirmatory budget on the held-out case
+          (docs/EVAL.md §6). Only confirm when you mean to record it.
+        </p>
+        {/* Wide gap so a fingertip can't bridge Confirm and Cancel. Confirm is
+            disabled through the arming-guard window (fix #1, no layout shift);
+            Cancel is padded to a ≥24px (≈44px effective) touch target. */}
+        <div className="mt-5 flex items-center gap-6">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            className="chronicle-cta-ink rounded-md bg-ink px-4 py-2 text-[12px] font-medium text-base transition-colors hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50"
+          >
+            Confirm — run live extraction
+          </button>
+          <button
+            ref={cancelButtonRef}
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-4 py-2 text-[12px] font-medium text-ink-muted transition-colors duration-150 hover:bg-line/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-10 rounded-md border border-line bg-base p-6">
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-subtle">
+        Held-out · Case 3
+      </p>
+      <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em] text-ink">
+        Live extraction is off by default.
+      </h3>
+      <p className="mt-2 max-w-[62ch] text-[13px] leading-relaxed text-ink-muted">
+        The cached fallback from the last recorded run of the active model is
+        shown below. Running the live held-out extraction spends the final scored
+        Case 3 measurement event (docs/EVAL.md §6), so it is gated behind an
+        explicit confirm.
+      </p>
+      <div className="mt-5">
+        <button
+          ref={armButtonRef}
+          type="button"
+          onClick={onArm}
+          className="chronicle-cta-ink rounded-md bg-ink px-4 py-2 text-[12px] font-medium text-base transition-colors hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          Run live extraction…
+        </button>
+      </div>
     </div>
   );
 }
@@ -676,12 +877,10 @@ function ErrorBlock({ message }: { message: string }) {
 function LiveErrorBlock({
   code,
   message,
-  onRetry,
   onFallback,
 }: {
   code: string | null;
   message: string | null;
-  onRetry: () => void;
   onFallback: () => void;
 }) {
   const meta = liveErrorCopy(code);
@@ -702,19 +901,16 @@ function LiveErrorBlock({
       <div className="mt-5 flex items-center gap-3">
         <button
           type="button"
-          onClick={onRetry}
-          className="chronicle-cta-ink rounded-md bg-ink px-3 py-1.5 text-[12px] font-medium text-base hover:bg-ink/90"
-        >
-          Retry live
-        </button>
-        <button
-          type="button"
           onClick={onFallback}
           className="text-[12px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink"
         >
           Load cached fallback (⌘+⇧+L)
         </button>
       </div>
+      {/* Live re-runs go back through the two-step gate above — never one click. */}
+      <p className="mt-4 text-[12px] leading-relaxed text-ink-subtle">
+        To run the live extraction again, use the confirm gate above.
+      </p>
     </div>
   );
 }

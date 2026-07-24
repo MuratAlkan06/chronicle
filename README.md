@@ -141,10 +141,10 @@ Local-only. Single narrated walkthrough, ~3:30–4:00 total. 4 beats:
 
 1. **Main app, Cases 1+2** — drag-and-drop walkthrough with streaming insertion. Precomputed events served with a 1.5s feel-delay per doc (Q20).
 2. **Transition** — footer "View evaluation metrics" link.
-3. **`/eval` page, Case 3 live** — extraction runs on route entry, metrics populate as docs stream in. The credibility moment.
+3. **`/eval` page, Case 3 live** — opens on the cached fallback; an explicit two-step confirm gate starts the held-out extraction (it spends the final scored Case 3 measurement, so it never auto-runs on route entry), then metrics populate as docs stream in. The credibility moment.
 4. **Close** — back to `/app`. Patient-narrative close.
 
-Hotkey **Cmd+Shift+L** on `/eval` swaps the live extraction for `data/case3_eval_fallback.json` (populated at H11 from the live run). Trigger condition: doc badge counter hasn't incremented for 15s, or red error toast.
+Hotkey **Cmd+Shift+L** on `/eval` reloads the cached fallback `data/case3_eval_fallback.json` — the page opens on it, and the hotkey is the recovery move if a live run you started goes sick (badges stall or a red error card). The live run itself is triggered only via the confirm gate, never on route entry.
 
 See [docs/BUILD.md](docs/BUILD.md) §6 for the full narration script and §H11 for the rehearsal checklist.
 
