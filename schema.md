@@ -177,4 +177,4 @@ Use `zod` schemas as the source of truth, and derive these TS types via `z.infer
 
 ## Notes for fixtures
 
-[MOCK_DATA.md](MOCK_DATA.md) contains hand-authored fixtures used by the frontend session. Fixture event IDs use UUID-shaped strings with case-prefixed sequencing (e.g., `c1000001-0000-4000-8000-000000000001`) for human readability. These are valid UUID v4 format. Production extraction will use real `crypto.randomUUID()` outputs.
+[MOCK_DATA.md](MOCK_DATA.md) contains the Cases 1+2 fixtures — AI-generated during the planning session (STATE.md cycle 0) and consumed by the frontend session. Fixture event IDs use UUID-shaped strings with case-prefixed sequencing (e.g., `c1000001-0000-4000-8000-000000000001`) for human readability. These are valid UUID v4 format. Production extraction will use real `crypto.randomUUID()` outputs.

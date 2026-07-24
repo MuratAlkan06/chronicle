@@ -22,11 +22,11 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 
 **Beat 3 — /eval page, Case 3 LIVE (1:45 – 3:30, ~105s)**
 - Page mounts on Case 3 tab. Extraction starts immediately on route entry.
-- *Narrate while doc badges stream in:* "David Park, 38M — chronic low back pain, 5 providers, 8 documents. The model is seeing these PDFs for the first time. Ground-truth labels were written before any prompt iteration began."
+- *Narrate while doc badges stream in:* "David Park, 38M — chronic low back pain, 5 providers, 8 documents. The model is seeing these PDFs for the first time. Case 3 was never used in prompt iteration — its ground-truth labels were authored and hash-locked before the model was ever run against it."
 - Numbers populate. Don't read every number — point at the strict precision card.
 - *Narrate:* "Strict tier: exact event type, exact date. Loose tier: ±3 days, same event type. We measure both because patient timelines aren't medical-record timelines — patients describe dates fuzzily."
 - *Narrate at the breakdown table:* "Per-event-type: labs and imaging are easy because they have explicit dates. Visits and referrals are where ambiguity lives — that's where the loose tier matters."
-- Expand the methodology `<details>` for ~5 seconds, just to show the prompt-hash + labeled-before-iteration line.
+- Expand the methodology `<details>` for ~5 seconds, just to show the prompt-hash + the held-out claim line (Case 3 never used in iteration; GT locked before any Case 3 measurement).
 
 **Beat 4 — Close (3:30 – 4:00, ~30s)**
 - Click browser back to `/app`. Sarah's timeline still visible.
@@ -256,7 +256,7 @@ If Tier 1 (related) is broken: cut and move on. If Tier 1 works but other items 
 - Start the dev server. Navigate to `/eval`.
 - Watch the live extraction. Watch the metrics populate.
 - **Whatever the numbers are, they are the numbers.** Do not tune the prompt now. The held-out integrity is the artifact.
-- If strict P or R is below 0.5: **escape hatch decision.** Swap `lib/claude.ts` to use Opus 4.7 instead of Sonnet 4.6 (one-line model string change). Re-run. The $100 reserved budget covers ~1500 doc extractions; one re-run is trivial. If Opus also disappoints, that's the metric you ship — be honest in narration ("strict matching is conservative; loose tier shows real coverage").
+- If strict P or R is below 0.5: **escape hatch decision.** Re-run the measurement against Opus 4.7 via the flag — `npx tsx scripts/eval-case3.ts case3 --runs 3 --model claude-opus-4-7` (no code edit; `--model` overrides Sonnet 4.6 and auto-omits `temperature` for models that reject it). The $100 reserved budget covers ~1500 doc extractions; one re-run is trivial. If Opus also disappoints, that's the metric you ship — be honest in narration ("strict matching is conservative; loose tier shows real coverage"). **[Exercised 2026-07-23 as pre-registered measurement event #3: Opus 4.7 3-run mean strict P/R 0.48/0.42 did not clear the 0.5 bar; `claude-sonnet-4-6` stays the active model. See README "Held-out Case 3 results" + STATE.md cycle 19.]**
 - Save the final live result to `data/case3_eval_fallback.json` as the hotkey backup.
 - Commit everything.
 
@@ -321,7 +321,7 @@ Hard-kill criteria at H4/H6/H8/H10/H11 are already mitigated. These are **new** 
 - *Trigger:* H11 live run shows poor numbers, escape hatch model swap doesn't recover them.
 - *Likelihood:* Low-medium. The strict tier is genuinely strict (exact date + 0.5 token-overlap); the loose tier is your safety net.
 - *Blast radius:* Eval page's headline number undermines the credibility narrative.
-- *Mitigation:* (a) **Lead the narration with loose tier** at beat 3 if strict is poor — "Strict is precision-conservative; loose tier is the realistic patient-facing measure." This is honest framing, not spin. (b) Make sure per-event-type breakdown is rendered prominently — labs and imaging tend to be precise; the average gets dragged down by visit/referral ambiguity. Show the breakdown so judges see where the conservatism comes from. (c) **The methodology blurb is the real artifact.** "We labeled before iterating" is what wins; the exact P/R number matters less than the discipline. Double-down on the methodology framing in the demo if numbers underperform.
+- *Mitigation:* (a) **Lead the narration with loose tier** at beat 3 if strict is poor — "Strict is precision-conservative; loose tier is the realistic patient-facing measure." This is honest framing, not spin. (b) Make sure per-event-type breakdown is rendered prominently — labs and imaging tend to be precise; the average gets dragged down by visit/referral ambiguity. Show the breakdown so judges see where the conservatism comes from. (c) **The methodology blurb is the real artifact.** "We labeled Case 3 independently and locked it before the model ever ran on it" is what wins; the exact P/R number matters less than the discipline. Double-down on the methodology framing in the demo if numbers underperform.
 
 **Risk 4: Prompt caching cache_control misplaced → cost blowout during H8-H9 iteration.**
 - *Trigger:* You iterate the prompt 20+ times during H9 and notice the API spend climbing fast.

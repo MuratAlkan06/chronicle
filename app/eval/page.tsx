@@ -5,11 +5,13 @@
  *
  * Two tabs: Cases 1+2 cached (precomputed reports) and Case 3 live (held-out
  * SSE evaluation). Live tab is default per BUILD.md beat 3 of the demo flow.
- * Path B is currently active (Case 3 PDFs+GT deferred), so the live tab will
- * display the gt_not_present graceful-degrade message until H11.
+ * Case 3 is now labeled, hash-locked, and evaluated, so the live tab runs a
+ * real held-out SSE extraction (gt_not_present degrades only if it goes missing).
  *
- * Cmd+Shift+L hotkey swaps the live tab to data/case3_eval_fallback.json
- * (the cached backup the demo presenter triggers if the live run is sick).
+ * Cmd+Shift+L hotkey swaps the live tab to the cached backup the demo presenter
+ * triggers if the live run is sick. The canonical file is
+ * data/case3_eval_fallback.json, served via GET /api/eval/fallback (repo-root
+ * data/ is not statically served by Next).
  */
 
 import Link from "next/link";
@@ -125,9 +127,9 @@ export default function EvalPage() {
           </h1>
           <p className="mt-5 max-w-[58ch] text-[16px] leading-relaxed text-ink-muted">
             Chronicle was evaluated on three patient cases. Cases 1+2 were used
-            during prompt iteration; Case 3 was held out — labeled before any
-            prompt change and never seen by the model until this page is
-            opened.
+            during prompt iteration; Case 3 was held out — never used in prompt
+            iteration, its ground truth labeled and hash-locked before the model
+            was ever run against it (first recorded run 2026-05-10).
           </p>
         </section>
 
@@ -305,7 +307,7 @@ function LivePanel() {
 
   const loadFallback = useCallback(() => {
     abortRef.current?.abort();
-    fetch("/data/case3_eval_fallback.json")
+    fetch("/api/eval/fallback")
       .then((r) => r.json())
       .then((json) => {
         if (json?._placeholder) {
@@ -562,13 +564,14 @@ function Report({
             (≥0.5).
           </p>
           <p>
-            Ground-truth labels for Cases 1 + 2 were derived from the source
-            PDFs and locked before prompt iteration. Case 3 ground truth was
-            written before any prompt change and is hash-locked at
+            Ground-truth labels for Cases 1 + 2 were derived from their
+            fixtures and locked before prompt iteration. Case 3 was never used
+            in prompt iteration; its ground truth was labeled and hash-locked at
             <code className="mx-1 rounded-sm bg-base px-1 py-[1px] font-mono text-[11px]">
               held_out/case3/.gt_hash.lock
             </code>
-            — the eval route refuses to run if the file has been modified.
+            before the model was ever run against it — the eval route refuses
+            to run if the file has been modified.
           </p>
           {promptVersion ? (
             <p>
@@ -724,9 +727,9 @@ function liveErrorCopy(code: string | null): {
   switch (code) {
     case "gt_not_present":
       return {
-        tag: "Path B — held-out deferred",
-        headline: "Case 3 ground truth not yet written.",
-        body: "Per the build's deferred-labeling policy, Case 3 PDFs and ground-truth labels are written at H8 deadline. Until then, the live evaluation graceful-degrades with this notice instead of running against the model.",
+        tag: "Held-out data unavailable",
+        headline: "Case 3 held-out data isn't available.",
+        body: "The live evaluation graceful-degrades with this notice when Case 3's held-out ground truth or PDFs aren't present at run time. Case 3 is otherwise labeled and hash-locked — load the cached fallback below to see the recorded run.",
       };
     case "gt_hash_mismatch":
       return {
@@ -745,6 +748,12 @@ function liveErrorCopy(code: string | null): {
         tag: "Fallback placeholder",
         headline: "Fallback file is empty.",
         body: "data/case3_eval_fallback.json is currently a placeholder — real Case 3 metrics land at H11 after the live run is captured.",
+      };
+    case "all_docs_failed":
+      return {
+        tag: "No successful extractions",
+        headline: "Every document failed to extract.",
+        body: "All Case 3 documents errored during extraction — typically an API auth or transport failure — so there's nothing to score. This run is not a measurement and was not saved. Check the server logs / API key and retry, or load the cached fallback below.",
       };
     default:
       return {

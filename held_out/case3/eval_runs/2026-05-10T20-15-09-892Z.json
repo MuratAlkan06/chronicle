@@ -1,7 +1,7 @@
 {
-  "_note": "Real Case 3 held-out result, captured from held_out/case3/eval_runs/2026-05-10T20-15-09-892Z.json (prompt v4, hash f32ebd0, Sonnet 4.6, API default temperature, no seed). The Cmd+Shift+L hotkey on /eval reads this file and renders it as a cached result: it consumes .tiers (strict/loose) and .byEventType (per-event-type breakdown) plus .promptVersion/.promptHash. Demo backup for when the live held-out run is unavailable.",
-  "caseId": "case3",
-  "events": [
+  "generatedAt": "2026-05-10T20:15:09.893Z",
+  "promptHash": "f32ebd088c77cb19a36b501a313eb5358b684a0a",
+  "predicted": [
     {
       "id": "0f402b29-bfdd-4635-83e0-c7c5bca50283",
       "date": "2024-09-09",
@@ -365,7 +365,7 @@
       "related_ids": []
     }
   ],
-  "tiers": {
+  "metrics": {
     "strict": {
       "tier": "strict",
       "tp": 9,
@@ -388,8 +388,8 @@
     }
   },
   "byEventType": {
-    "lab": {
-      "strict": {
+    "strict": {
+      "lab": {
         "tier": "strict",
         "tp": 0,
         "fp": 0,
@@ -399,7 +399,69 @@
         "f1": 0,
         "n_gt": 0
       },
-      "loose": {
+      "imaging": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "n_gt": 2
+      },
+      "visit": {
+        "tier": "strict",
+        "tp": 2,
+        "fp": 4,
+        "fn": 4,
+        "precision": 0.3333333333333333,
+        "recall": 0.3333333333333333,
+        "f1": 0.3333333333333333,
+        "n_gt": 6
+      },
+      "diagnosis": {
+        "tier": "strict",
+        "tp": 3,
+        "fp": 1,
+        "fn": 2,
+        "precision": 0.75,
+        "recall": 0.6,
+        "f1": 0.6666666666666665,
+        "n_gt": 5
+      },
+      "medication": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 4,
+        "fn": 3,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 3
+      },
+      "procedure": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "n_gt": 1
+      },
+      "referral": {
+        "tier": "strict",
+        "tp": 2,
+        "fp": 2,
+        "fn": 1,
+        "precision": 0.5,
+        "recall": 0.6666666666666666,
+        "f1": 0.5714285714285715,
+        "n_gt": 3
+      }
+    },
+    "loose": {
+      "lab": {
         "tier": "loose",
         "tp": 0,
         "fp": 0,
@@ -409,20 +471,7 @@
         "f1": 0,
         "n_gt": 0
       },
-      "n_gt": 0
-    },
-    "imaging": {
-      "strict": {
-        "tier": "strict",
-        "tp": 1,
-        "fp": 0,
-        "fn": 1,
-        "precision": 1,
-        "recall": 0.5,
-        "f1": 0.6666666666666666,
-        "n_gt": 2
-      },
-      "loose": {
+      "imaging": {
         "tier": "loose",
         "tp": 1,
         "fp": 0,
@@ -432,20 +481,7 @@
         "f1": 0.6666666666666666,
         "n_gt": 2
       },
-      "n_gt": 2
-    },
-    "visit": {
-      "strict": {
-        "tier": "strict",
-        "tp": 2,
-        "fp": 4,
-        "fn": 4,
-        "precision": 0.3333333333333333,
-        "recall": 0.3333333333333333,
-        "f1": 0.3333333333333333,
-        "n_gt": 6
-      },
-      "loose": {
+      "visit": {
         "tier": "loose",
         "tp": 2,
         "fp": 4,
@@ -455,20 +491,7 @@
         "f1": 0.3333333333333333,
         "n_gt": 6
       },
-      "n_gt": 6
-    },
-    "diagnosis": {
-      "strict": {
-        "tier": "strict",
-        "tp": 3,
-        "fp": 1,
-        "fn": 2,
-        "precision": 0.75,
-        "recall": 0.6,
-        "f1": 0.6666666666666665,
-        "n_gt": 5
-      },
-      "loose": {
+      "diagnosis": {
         "tier": "loose",
         "tp": 3,
         "fp": 1,
@@ -478,20 +501,7 @@
         "f1": 0.6666666666666665,
         "n_gt": 5
       },
-      "n_gt": 5
-    },
-    "medication": {
-      "strict": {
-        "tier": "strict",
-        "tp": 0,
-        "fp": 4,
-        "fn": 3,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "n_gt": 3
-      },
-      "loose": {
+      "medication": {
         "tier": "loose",
         "tp": 0,
         "fp": 4,
@@ -501,20 +511,7 @@
         "f1": 0,
         "n_gt": 3
       },
-      "n_gt": 3
-    },
-    "procedure": {
-      "strict": {
-        "tier": "strict",
-        "tp": 1,
-        "fp": 0,
-        "fn": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "n_gt": 1
-      },
-      "loose": {
+      "procedure": {
         "tier": "loose",
         "tp": 1,
         "fp": 0,
@@ -524,20 +521,7 @@
         "f1": 1,
         "n_gt": 1
       },
-      "n_gt": 1
-    },
-    "referral": {
-      "strict": {
-        "tier": "strict",
-        "tp": 2,
-        "fp": 2,
-        "fn": 1,
-        "precision": 0.5,
-        "recall": 0.6666666666666666,
-        "f1": 0.5714285714285715,
-        "n_gt": 3
-      },
-      "loose": {
+      "referral": {
         "tier": "loose",
         "tp": 2,
         "fp": 2,
@@ -546,11 +530,7 @@
         "recall": 0.6666666666666666,
         "f1": 0.5714285714285715,
         "n_gt": 3
-      },
-      "n_gt": 3
+      }
     }
-  },
-  "promptVersion": "v4",
-  "promptHash": "f32ebd088c77cb19a36b501a313eb5358b684a0a",
-  "generatedAt": "2026-05-10T20:15:09.893Z"
+  }
 }

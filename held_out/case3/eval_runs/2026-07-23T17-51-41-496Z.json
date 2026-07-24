@@ -1,0 +1,584 @@
+{
+  "generatedAt": "2026-07-23T17:51:41.497Z",
+  "caseId": "case3",
+  "model": "claude-opus-4-7",
+  "promptHash": "f32ebd088c77cb19a36b501a313eb5358b684a0a",
+  "temperature": null,
+  "run": 1,
+  "runs": 3,
+  "predicted": [
+    {
+      "id": "e0275cf7-11b1-4527-961d-8b48b79dcba6",
+      "date": "2024-05-12",
+      "date_text": "05/12/2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Urgent care visit — acute low back pain",
+      "summary": "Urgent care visit for acute low back pain that started while moving boxes. Exam showed right L4-L5 paraspinal tenderness with no neurologic red flags.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Jennifer Okonkwo, PA-C",
+      "source": {
+        "document_id": "d1_urgent_care_2024_05",
+        "page": 1,
+        "snippet": "Pt is a 38yo M presenting with acute onset low back pain that began this morning while moving boxes during a household move."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "454516c3-e82a-434d-9974-528021cf06e4",
+      "date": "2024-05-12",
+      "date_text": "05/12/2024",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Dx added: Acute mechanical low back pain",
+      "summary": "Acute mechanical low back pain (ICD-10 M54.5), most likely lumbar paraspinal muscle strain. No red flag features identified.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Jennifer Okonkwo, PA-C",
+      "source": {
+        "document_id": "d1_urgent_care_2024_05",
+        "page": 1,
+        "snippet": "Acute mechanical low back pain (M54.5), most likely lumbar paraspinal muscle strain. No red flags on history or exam."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "1504b2a6-bd5c-4006-b82a-5b2abb6f18b4",
+      "date": "2024-05-12",
+      "date_text": "05/12/2024",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Started ibuprofen 600 mg q6h PRN",
+      "summary": "Ibuprofen 600 mg by mouth every 6 hours as needed, taken with food, for 5-7 days.",
+      "severity": "info",
+      "values": null,
+      "provider": "Jennifer Okonkwo, PA-C",
+      "source": {
+        "document_id": "d1_urgent_care_2024_05",
+        "page": 1,
+        "snippet": "Ibuprofen 600 mg PO q6h PRN, with food. Continue for 5-7 days."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "ac99ebc6-b62c-494f-aded-80015f1c99c9",
+      "date": "2024-05-12",
+      "date_text": "05/12/2024",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Started cyclobenzaprine 5 mg TID",
+      "summary": "Cyclobenzaprine 5 mg by mouth three times daily as needed for muscle spasm, for 5 days. Patient counseled on drowsiness and not to drive while taking.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Jennifer Okonkwo, PA-C",
+      "source": {
+        "document_id": "d1_urgent_care_2024_05",
+        "page": 1,
+        "snippet": "Cyclobenzaprine 5 mg PO TID PRN muscle spasm, for 5 days. Counseled re: drowsiness, no driving while taking."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "1188041d-0434-41c0-a9b8-372f1bf0ca2e",
+      "date": "2024-06-03",
+      "date_text": "June 3, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP follow-up — back pain",
+      "summary": "Follow-up visit for subacute low back pain, three weeks after initial urgent care evaluation. Patient reports partial improvement but new intermittent radiating symptoms into the right buttock and posterior thigh.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Marcus Hayes, MD",
+      "source": {
+        "document_id": "d2_pcp_2024_06",
+        "page": 1,
+        "snippet": "Mr. Park returns to clinic 3 weeks after acute onset of low back pain."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "c69ba7e2-02fe-491e-aaac-596da6965fcc",
+      "date": "2024-06-03",
+      "date_text": "June 3, 2024",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Dx added: Subacute low back pain w/ radicular features",
+      "summary": "Subacute low back pain with mild radicular features in the right L5 distribution added to assessment. Exam reassuring with no motor deficits, but new radiating symptoms prompted escalation.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Marcus Hayes, MD",
+      "source": {
+        "document_id": "d2_pcp_2024_06",
+        "page": 1,
+        "snippet": "1. Subacute low back pain with mild radicular features, right L5 distribution most likely (M54.16)."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "2ff48220-c0a5-46b7-8815-2a5b1efaea0c",
+      "date": "2024-06-03",
+      "date_text": "June 3, 2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to orthopedic spine specialist",
+      "summary": "Referral placed to Dr. Reza Tehrani at Bay Area Orthopedic Specialists for orthopedic spine evaluation. Expedited scheduling requested given symptom evolution.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Marcus Hayes, MD",
+      "source": {
+        "document_id": "d2_pcp_2024_06",
+        "page": 1,
+        "snippet": "1. Referral to orthopedic spine specialist (Dr. Reza Tehrani at Bay Area Orthopedic Specialists). Will request expedited scheduling given symptom evolution."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "cca0b3dc-5ec9-4cda-837a-468340163320",
+      "date": "2024-06-03",
+      "date_text": "June 3, 2024",
+      "date_confidence": "exact",
+      "event_type": "medication",
+      "title": "Started naproxen 500 mg BID",
+      "summary": "Switched from as-needed ibuprofen to naproxen 500 mg twice daily for more sustained anti-inflammatory coverage. Patient agreeable to the change.",
+      "severity": "info",
+      "values": null,
+      "provider": "Marcus Hayes, MD",
+      "source": {
+        "document_id": "d2_pcp_2024_06",
+        "page": 2,
+        "snippet": "Discussed switching to naproxen 500 mg BID for more sustained coverage; patient agreeable."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "4379636b-7b43-4d1a-a801-84fe392d0615",
+      "date": "2024-06-18",
+      "date_text": "June 18, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Orthopedics consult — low back pain",
+      "summary": "Spine/orthopedic consultation for right-sided low back pain with intermittent radiculopathy persisting about 5 weeks after a lifting injury. Exam notable for positive right straight-leg raise at 50 degrees and mildly diminished right Achilles reflex.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d3_ortho_2024_06",
+        "page": 1,
+        "snippet": "Right-sided low back pain with intermittent radiculopathy, persistent ~5 weeks despite conservative management."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "550a6cbd-57cf-4f9b-83b6-a73454b96299",
+      "date": "2024-06-18",
+      "date_text": "June 18, 2024",
+      "date_confidence": "exact",
+      "event_type": "diagnosis",
+      "title": "Dx added: right lumbar radiculopathy (L5/S1)",
+      "summary": "Right-sided lumbar radiculopathy diagnosed, most consistent with L5 or S1 nerve root involvement, likely from a disc-related process.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d3_ortho_2024_06",
+        "page": 2,
+        "snippet": "Right-sided lumbar radiculopathy, most consistent with L5 or S1 nerve root involvement, in the setting of a likely disc-related process."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "c0650775-e50c-4a57-aa24-2c8fb990c82f",
+      "date": "2024-06-18",
+      "date_text": "June 18, 2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to imaging — MRI lumbar spine",
+      "summary": "MRI of the lumbar spine without contrast ordered to evaluate suspected disc-related nerve root involvement, scheduled at NorCal Imaging Center.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d3_ortho_2024_06",
+        "page": 2,
+        "snippet": "MRI lumbar spine without contrast — will be ordered today, scheduled at NorCal Imaging Center."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "0529f4ef-34a7-403d-bf3f-7f8bf765afcd",
+      "date": "2024-06-18",
+      "date_text": "June 18, 2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to physical therapy",
+      "summary": "Referred to Active Recovery PT for physical therapy twice weekly for 6 weeks.",
+      "severity": "info",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d3_ortho_2024_06",
+        "page": 2,
+        "snippet": "Initiate physical therapy twice weekly for 6 weeks; will provide referral to Active Recovery PT."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "340d4f7a-d316-496d-aafc-4ce33033107a",
+      "date": "2024-07-01",
+      "date_text": "07/01/2024",
+      "date_confidence": "exact",
+      "event_type": "imaging",
+      "title": "MRI lumbar spine — L4-L5 disc protrusion, L5 impingement",
+      "summary": "MRI of the lumbar spine without contrast showed a 5 mm right paracentral disc protrusion at L4-L5 impinging on the right L5 nerve root, with mild-to-moderate right neural foraminal narrowing. Findings correlate with the patient's right-sided radicular symptoms. Mild multilevel degenerative disc disease also noted; no high-grade central canal stenosis or fracture.",
+      "severity": "concerning",
+      "values": null,
+      "provider": "Priya Krishnan, MD",
+      "source": {
+        "document_id": "d4_mri_2024_07",
+        "page": 2,
+        "snippet": "5 mm right paracentral disc protrusion at L4-L5 with impingement on the right L5 nerve root and mild-to-moderate right neural foraminal narrowing. This finding correlates with the patient's reported right-sided radicular symptoms."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "aa821cad-f079-4efc-b3f8-cfa9107ad870",
+      "date": "2024-07-08",
+      "date_text": "7/8/2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PT initial evaluation — lumbar radiculopathy",
+      "summary": "Initial physical therapy evaluation for right L5 radiculopathy following L4-L5 disc protrusion. Exam showed limited lumbar flexion, mild right-sided L5 weakness, and positive straight-leg raise on the right. PT prescribed 2x/week for 6 weeks.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Hailey Chen, DPT, OCS",
+      "source": {
+        "document_id": "d5_pt_initial_2024_07",
+        "page": 1,
+        "snippet": "38 yo M with right L5 radiculopathy 2/2 right L4-L5 disc protrusion confirmed on MRI. Presents with mild motor involvement (hip abduction, EHL) on R side, consistent with L5 distribution, but no significant strength deficit."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "3142729d-a8b4-40a1-9c6f-950940fa0504",
+      "date": "2024-08-14",
+      "date_text": "August 14, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "Orthopedics follow-up — radiculopathy reassessment",
+      "summary": "Follow-up with Dr. Tehrani ~8 weeks after initial consult. Back pain improved 40-50% but right L5 radicular symptoms persist despite ~6 weeks of physical therapy.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d6_ortho_followup_2024_08",
+        "page": 1,
+        "snippet": "Mr. Park returns approximately 8 weeks after his initial consultation, having completed approximately 6 weeks of physical therapy"
+      },
+      "related_ids": []
+    },
+    {
+      "id": "7b314a56-db50-40a2-8ac8-ff9fc19617f6",
+      "date": "2024-08-14",
+      "date_text": "August 14, 2024",
+      "date_confidence": "exact",
+      "event_type": "referral",
+      "title": "Referral to Pain Management — epidural injection",
+      "summary": "Referred to East Bay Pain Management for consideration of a right L5 transforaminal epidural steroid injection after partial response to conservative care.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Reza Tehrani, MD",
+      "source": {
+        "document_id": "d6_ortho_followup_2024_08",
+        "page": 1,
+        "snippet": "Referral to East Bay Pain Management for consideration of right L5 transforaminal epidural steroid injection."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "974c4f09-fce6-4d99-bd32-6dd9b71ee6c4",
+      "date": "2024-09-09",
+      "date_text": "09/09/2024",
+      "date_confidence": "exact",
+      "event_type": "procedure",
+      "title": "Right L4-L5 transforaminal epidural steroid injection",
+      "summary": "Fluoroscopy-guided steroid injection at the right L4-L5 nerve root for right L5 radiculopathy. Procedure completed without complications; pre-procedure pain 5/10, post-procedure 4/10.",
+      "severity": "monitor",
+      "values": null,
+      "provider": "Sandra Liu, MD",
+      "source": {
+        "document_id": "d7_pain_procedure_2024_09",
+        "page": 1,
+        "snippet": "Right L4-L5 transforaminal epidural steroid injection under fluoroscopic guidance."
+      },
+      "related_ids": []
+    },
+    {
+      "id": "c29d2910-f606-4ce1-8911-35b0d0cd5c0a",
+      "date": "2024-10-28",
+      "date_text": "October 28, 2024",
+      "date_confidence": "exact",
+      "event_type": "visit",
+      "title": "PCP follow-up — radiculopathy recheck",
+      "summary": "Follow-up visit for right L5 radiculopathy. Patient reports approximately 70% improvement since epidural steroid injection, with normalized exam findings including negative straight-leg raise and resolution of prior Achilles reflex asymmetry.",
+      "severity": "info",
+      "values": null,
+      "provider": "Marcus Hayes, MD",
+      "source": {
+        "document_id": "d8_pcp_followup_2024_10",
+        "page": 1,
+        "snippet": "Mr. Park returns for follow-up of right L5 radiculopathy."
+      },
+      "related_ids": []
+    }
+  ],
+  "metrics": {
+    "strict": {
+      "tier": "strict",
+      "tp": 8,
+      "fp": 10,
+      "fn": 12,
+      "precision": 0.4444444444444444,
+      "recall": 0.4,
+      "f1": 0.4210526315789474,
+      "n_gt": 20
+    },
+    "loose": {
+      "tier": "loose",
+      "tp": 8,
+      "fp": 10,
+      "fn": 12,
+      "precision": 0.4444444444444444,
+      "recall": 0.4,
+      "f1": 0.4210526315789474,
+      "n_gt": 20
+    }
+  },
+  "byEventType": {
+    "strict": {
+      "lab": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "imaging": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "n_gt": 2
+      },
+      "visit": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 5,
+        "fn": 5,
+        "precision": 0.16666666666666666,
+        "recall": 0.16666666666666666,
+        "f1": 0.16666666666666666,
+        "n_gt": 6
+      },
+      "diagnosis": {
+        "tier": "strict",
+        "tp": 2,
+        "fp": 1,
+        "fn": 3,
+        "precision": 0.6666666666666666,
+        "recall": 0.4,
+        "f1": 0.5,
+        "n_gt": 5
+      },
+      "medication": {
+        "tier": "strict",
+        "tp": 0,
+        "fp": 3,
+        "fn": 3,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 3
+      },
+      "procedure": {
+        "tier": "strict",
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "n_gt": 1
+      },
+      "referral": {
+        "tier": "strict",
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.75,
+        "recall": 1,
+        "f1": 0.8571428571428571,
+        "n_gt": 3
+      }
+    },
+    "loose": {
+      "lab": {
+        "tier": "loose",
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 0
+      },
+      "imaging": {
+        "tier": "loose",
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "n_gt": 2
+      },
+      "visit": {
+        "tier": "loose",
+        "tp": 1,
+        "fp": 5,
+        "fn": 5,
+        "precision": 0.16666666666666666,
+        "recall": 0.16666666666666666,
+        "f1": 0.16666666666666666,
+        "n_gt": 6
+      },
+      "diagnosis": {
+        "tier": "loose",
+        "tp": 2,
+        "fp": 1,
+        "fn": 3,
+        "precision": 0.6666666666666666,
+        "recall": 0.4,
+        "f1": 0.5,
+        "n_gt": 5
+      },
+      "medication": {
+        "tier": "loose",
+        "tp": 0,
+        "fp": 3,
+        "fn": 3,
+        "precision": 0,
+        "recall": 0,
+        "f1": 0,
+        "n_gt": 3
+      },
+      "procedure": {
+        "tier": "loose",
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "n_gt": 1
+      },
+      "referral": {
+        "tier": "loose",
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.75,
+        "recall": 1,
+        "f1": 0.8571428571428571,
+        "n_gt": 3
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 42366,
+    "output_tokens": 5807,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 72224
+  },
+  "perDocUsage": [
+    {
+      "docId": "d1_urgent_care_2024_05",
+      "usage": {
+        "input_tokens": 5023,
+        "output_tokens": 1105,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d2_pcp_2024_06",
+      "usage": {
+        "input_tokens": 5180,
+        "output_tokens": 1290,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d3_ortho_2024_06",
+      "usage": {
+        "input_tokens": 5447,
+        "output_tokens": 1259,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d4_mri_2024_07",
+      "usage": {
+        "input_tokens": 5253,
+        "output_tokens": 459,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d5_pt_initial_2024_07",
+      "usage": {
+        "input_tokens": 5389,
+        "output_tokens": 431,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d6_ortho_followup_2024_08",
+      "usage": {
+        "input_tokens": 5314,
+        "output_tokens": 597,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d7_pain_procedure_2024_09",
+      "usage": {
+        "input_tokens": 5353,
+        "output_tokens": 344,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    },
+    {
+      "docId": "d8_pcp_followup_2024_10",
+      "usage": {
+        "input_tokens": 5407,
+        "output_tokens": 322,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 9028
+      }
+    }
+  ],
+  "docFailures": []
+}

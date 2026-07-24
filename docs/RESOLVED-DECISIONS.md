@@ -111,7 +111,7 @@ At H0, after Case 3 ground truth is written and locked:
 3. If hashes mismatch: refuse to run, exit non-zero (or send a single SSE error frame `{type:'error', code:'gt_hash_mismatch'}` and close) with a clear error message naming the file and hash mismatch.
 4. If hashes match: proceed with eval.
 
-**Defensible answer if asked:** "The eval script verifies the GT blob hash against a committed lock file before it runs. The lock file is in git history. Modifying the GT after H0 is tamper-evident — you can verify by running `git log .gt_hash.lock` and checking the lock commit predates any prompt iteration."
+**Defensible answer if asked:** "The eval script verifies the GT blob hash against a committed lock file before it runs. The lock file is in git history. Modifying the GT after H0 is tamper-evident — you can verify by running `git log .gt_hash.lock` and checking that the lock commit (`59ca076`) predates the first recorded Case 3 measurement. Case 3 was never referenced during prompt iteration — the CHANGELOG prompt-scoring rows cite Cases 1 and 2 only."
 
 `chmod 444` stays as a layered secondary signal. Belt and suspenders, ~10 seconds of additional work. (Wired into EVAL.md quality checklist + BUILD.md Block 2 + BUILD.md H7 prompt to Claude Code.)
 
@@ -154,7 +154,7 @@ LOCKED. Pre-H0 Blocks 1 + 2 are consciously deferred. Murat may complete the lab
 
 **Why ChatGPT-drafted labels were rejected:** considered and declined. Held-out evaluation is model-vs-human ground truth, not model-vs-model. Different model family (GPT vs Claude) doesn't fix the deeper issue — both share systematic biases about what counts as a clinical event, both miss the same kinds of subtle events, both pick weird snippet choices. A judge with NLP background will recognize that machine-vs-machine eval inflates the metric. Pure-human labeling stays the standard; if there's no time for it, deferring is more honest than substituting.
 
-**Hard deadline:** **before H8 of the build clock.** H8 is the prompt-iteration hour. Iterating against Cases 1+2 metrics IS allowed without Case 3 locked, BUT if Case 3 is added later, the iteration was contaminated (the prompt was tuned in a world where Case 3 might have been peeked at — even if it wasn't). The honest-narration version requires Case 3 locked before iteration starts.
+**Hard deadline:** **before H8 of the build clock.** H8 is the prompt-iteration hour. Iterating against Cases 1+2 metrics IS allowed without Case 3 locked, BUT if Case 3 is added later, the iteration was contaminated (the prompt was tuned in a world where Case 3 might have been peeked at — even if it wasn't). The honest-narration version requires Case 3 locked before any measurement is run against it, and never used in prompt iteration.
 
 **Two paths at the H8 fork:**
 

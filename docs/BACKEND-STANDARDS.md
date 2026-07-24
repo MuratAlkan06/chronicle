@@ -135,10 +135,12 @@ Env vars read from `.env.local` at project root:
 
 Examples:
 - `[extract] doc_started d1_a1c_2023_01.pdf`
-- `[claude] cache_read=2473 cache_create=0 input=8421`
+- `[claude] doc=d1_a1c_2023_01 input=8421 output=512 cache_read=2473 cache_create=0`
 - `[eval] gt_hash_match (lock=abc1234)`
 
-No external logging service, no Sentry. The dev server console IS the log.
+The `[claude]` line uses a fixed-field format (all four persisted usage fields,
+greppable) — see §J.11. No external logging service, no Sentry. The dev server
+console IS the log.
 
 ---
 
@@ -192,6 +194,47 @@ Same pattern for `fetch()` calls to Voyage (`fetch(url, { signal: abortSignal, .
 
 ---
 
+## J.11 — Deterministic extraction + usage persistence (Phase A, issue #7)
+
+> This section was added by reopening the "locked for the build" doc for Phase A
+> measurement-rigor work (the commit message carries the rationale).
+
+### Temperature 0
+
+The extraction Messages call sets `temperature: 0` (`lib/claude.ts`) to minimize
+run-to-run variance. `claude-sonnet-4-6` accepts `temperature`; the deprecation
+that makes any non-default value return **HTTP 400** applies only to models
+released *after* Claude Opus 4.6 (Opus 4.7+, Sonnet 5, …). If the model constant
+is ever bumped past that line, remove the `temperature` field. Temperature 0 is
+not bit-exact determinism — the reported held-out number is a 3-run mean±range
+(see [EVAL.md](EVAL.md) "Held-out measurement protocol").
+
+### Persisted usage fields (per extraction path)
+
+Every extraction call surfaces the four Anthropic usage fields, normalized so
+`null`/missing → `0` (`lib/measure.ts` `normalizeUsage`):
+
+```
+{ input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }
+```
+
+`extractDocWithUsage()` returns these alongside events; `extractDoc()` is a thin
+wrapper for streaming callers that don't persist. They are written to:
+
+| Path | Artifact | Fields |
+|---|---|---|
+| `scripts/extract-case.ts` | `data/cases/<id>/metadata.json` | `usageTotals` + `perDoc[].usage` |
+| `scripts/eval-case3.ts` | `held_out/case3/eval_runs/<ts>.json` | `usage` + `perDocUsage` |
+| `app/api/eval` (live) | `held_out/case3/eval_runs/<ts>.json` | `usage` + `perDocUsage` |
+
+**Old artifacts without usage fields must remain readable** — all readers treat
+usage as optional (the `metadata.json` consumer at `app/api/cases/[id]/events`
+only reads `generatedAt`/`modelVersion`; `scripts/cache-report.ts` skips
+artifacts with no usage). `cache-report.ts` aggregates usage → cache-hit % and $
+saved vs no-caching, priced from the dated table in `lib/pricing.ts`.
+
+---
+
 ## RESOLVED ITEMS (locked planner cycle 0.1)
 
 - [x] **Voyage rate limit / pricing** — proceed as-is. ~9K tokens per full eval run = $0.0005. No retry/cache layer. On 429, fall back to OpenAI per existing fallback in J.7.
@@ -202,3 +245,6 @@ Same pattern for `fetch()` calls to Voyage (`fetch(url, { signal: abortSignal, .
 - [x] **Anything to add** — added J.10 (body parser via `formData()` + AbortSignal propagation across Anthropic / Voyage / Gemini calls).
 
 This file is now locked for the build. Future changes only via the parallel-session integration cycle (per [PLAN.md](../PLAN.md) "Cross-session execution model").
+
+**Reopened once for Phase A (issue #7):** §J.8 console format updated and §J.11
+added (temperature-0 extraction + usage persistence). Re-locked after that slice.
