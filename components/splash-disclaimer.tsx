@@ -1,33 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "chronicle.splashDismissed.v1";
 
-export function SplashDisclaimer() {
-  const [open, setOpen] = useState(false);
+// The splash is a browser-only "show once" gate backed by localStorage. Reading
+// localStorage during render/hydration would cause a mismatch (the server can't
+// see it), so we expose it as an external store and read it via
+// useSyncExternalStore: getServerSnapshot renders nothing on the server, then
+// the real client snapshot fills in right after hydration — same visible timing
+// as the previous mount effect, without the flagged synchronous setState.
+//
+// `sessionDismissed` is an in-memory latch so that clicking "I understand" still
+// closes the dialog for the session even if localStorage.setItem throws (private
+// mode / quota) — matching the original unconditional close.
+let sessionDismissed = false;
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (window.localStorage.getItem(STORAGE_KEY) !== "1") {
-        setOpen(true);
-      }
-    } catch {
-      setOpen(true);
-    }
-  }, []);
-
-  if (!open) return null;
-
-  const dismiss = () => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // best-effort; still close
-    }
-    setOpen(false);
+function subscribe(onStoreChange: () => void): () => void {
+  listeners.add(onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
   };
+}
+
+function getSnapshot(): boolean {
+  if (sessionDismissed) return true;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    // Storage blocked → treat as not-dismissed (show the splash), matching the
+    // original effect's catch branch.
+    return false;
+  }
+}
+
+function getServerSnapshot(): boolean {
+  // No localStorage on the server → render nothing (the original initial state).
+  return true;
+}
+
+function dismissSplash(): void {
+  sessionDismissed = true;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "1");
+  } catch {
+    // best-effort; the in-memory latch still closes it for this session
+  }
+  listeners.forEach((l) => l());
+}
+
+export function SplashDisclaimer() {
+  const dismissed = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+
+  if (dismissed) return null;
 
   return (
     <div
@@ -55,7 +85,7 @@ export function SplashDisclaimer() {
         <div className="mt-6 flex justify-end">
           <button
             type="button"
-            onClick={dismiss}
+            onClick={dismissSplash}
             className="chronicle-cta-teal rounded-md bg-accent-teal px-5 py-2 text-sm font-medium text-white hover:bg-accent-teal/95"
           >
             I understand

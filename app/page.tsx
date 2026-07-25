@@ -482,8 +482,9 @@ function Problem() {
               everywhere.
             </h2>
             <p className="mt-6 max-w-[36ch] text-[17px] leading-relaxed text-ink-muted">
-              The fragmentation isn't a content problem — it's a routing problem.
-              No system aggregates the patient's view across providers.
+              The fragmentation isn&apos;t a content problem — it&apos;s a
+              routing problem. No system aggregates the patient&apos;s view
+              across providers.
             </p>
           </SectionEntrance>
         </div>

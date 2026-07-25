@@ -234,9 +234,9 @@ export function HeroScrollBoard() {
         </ContainerAnimated>
         <ContainerAnimated animation="blur" className="mx-auto mt-5 max-w-[52ch]">
           <p className="text-[15px] leading-relaxed text-ink-muted">
-            Doctors stitch a patient's history together by hand — sticky notes,
-            handwritten arrows, hunting for the right PDF. Chronicle does that
-            stitch on screen, in seconds, with citations.
+            Doctors stitch a patient&apos;s history together by hand — sticky
+            notes, handwritten arrows, hunting for the right PDF. Chronicle does
+            that stitch on screen, in seconds, with citations.
           </p>
         </ContainerAnimated>
       </ContainerStagger>

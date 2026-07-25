@@ -99,8 +99,9 @@ async function main(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let chromium: any;
   try {
-    // @ts-ignore — optional dev dependency loaded at runtime per the install
-    // instructions in this file's header comment
+    // @ts-expect-error — "playwright" is an optional dev dependency loaded at
+    // runtime per this file's header install instructions; it is intentionally
+    // absent from package.json, so its module types can't be resolved at build.
     const pw = await import("playwright");
     chromium = pw.chromium;
   } catch {

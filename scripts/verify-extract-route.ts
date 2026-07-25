@@ -72,13 +72,24 @@ const D1_STUB_EVENTS: TimelineEvent[] = [
   },
 ];
 
-async function consume(res: Response): Promise<{ frames: any[]; raw: string }> {
+interface ParsedFrame {
+  type: string;
+  event?: TimelineEvent;
+  docId?: string;
+  filename?: string;
+  totalDocs?: number;
+  eventCount?: number;
+}
+
+async function consume(
+  res: Response,
+): Promise<{ frames: ParsedFrame[]; raw: string }> {
   const raw = await res.text();
   const frames = raw
     .split("\n\n")
     .map((s) => s.trim())
     .filter((s) => s.startsWith("data:"))
-    .map((s) => JSON.parse(s.slice("data:".length).trim()));
+    .map((s): ParsedFrame => JSON.parse(s.slice("data:".length).trim()));
   return { frames, raw };
 }
 

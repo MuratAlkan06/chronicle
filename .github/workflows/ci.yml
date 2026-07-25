@@ -48,11 +48,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      # --- Informational (non-blocking) ---
-      # Lint has a large PRE-EXISTING baseline (~1493 problems / 21 errors) in
-      # untouched files. It runs for visibility but does not gate merges yet.
-      # TODO: drop continue-on-error and make this blocking once the baseline is
-      # cleaned (target: 0 errors).
-      - name: Lint (informational)
+      # --- Lint gate (blocking) ---
+      # Baseline cleared in cycle 21 (issue #11): public/pdf.worker.min.mjs (a
+      # vendored, minified bundle) is eslint-ignored and every real error is
+      # fixed, so lint now gates merges at 0 errors. Warnings remain allowed.
+      - name: Lint
         run: npm run lint
-        continue-on-error: true

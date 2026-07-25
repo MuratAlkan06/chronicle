@@ -39,18 +39,21 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
     "pending" | "matched" | "fallback"
   >("pending");
 
-  // Convert Blob → object URL so we hand react-pdf a stable string regardless
-  // of the source shape; revoke on cleanup. Strings (cases route) pass through.
-  const [file, setFile] = useState<string | undefined>(undefined);
+  // A string source (cached-case route URL) is handed to react-pdf as-is, so we
+  // derive it during render. Only a Blob source needs an effect — to create an
+  // object URL and revoke it on cleanup.
+  const [blobUrl, setBlobUrl] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (typeof source === "string") {
-      setFile(source);
-      return;
-    }
+    if (typeof source === "string") return;
     const url = URL.createObjectURL(source);
-    setFile(url);
+    // Legitimate effect-driven setState: the object URL is a real browser
+    // resource allocated here and revoked in cleanup, so it can't be derived
+    // during render; react-pdf needs it as reactive state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBlobUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [source]);
+  const file = typeof source === "string" ? source : blobUrl;
 
   const handleTextLayerSuccess = useCallback(() => {
     const root = containerRef.current;
@@ -96,12 +99,19 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
     setMatchOutcome("matched");
   }, [snippet]);
 
-  // When page or snippet changes, reset state so the next render runs the
-  // matcher again.
-  useEffect(() => {
+  // When page/snippet/source change, reset match state so the next render runs
+  // the matcher again. Done as an adjust-state-during-render (React re-renders
+  // before painting) rather than a synchronous setState inside an effect.
+  const [resetKey, setResetKey] = useState({ page, snippet, source });
+  if (
+    resetKey.page !== page ||
+    resetKey.snippet !== snippet ||
+    resetKey.source !== source
+  ) {
+    setResetKey({ page, snippet, source });
     setPageLoaded(false);
     setMatchOutcome("pending");
-  }, [page, snippet, source]);
+  }
 
   return (
     <div

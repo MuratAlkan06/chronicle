@@ -31,6 +31,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Playwright MCP session output (screenshots + traces written next to the repo
+# root during browser-driven review passes; *.log alone doesn't cover the .png)
+.playwright-mcp/
+
 # Held-out audit trail — keep ground_truth.json + .gt_hash.lock + prompt_hash.txt tracked,
 # but eval run outputs change every run and shouldn't pollute history
 held_out/case3/eval_runs/

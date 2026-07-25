@@ -20,7 +20,6 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, side, active, onSelect }: EventCardProps) {
-  const Icon = eventTypeIcon(event.event_type);
   return (
     <button
       type="button"
@@ -41,7 +40,7 @@ export function EventCard({ event, side, active, onSelect }: EventCardProps) {
           aria-hidden
           className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line bg-base text-ink-muted"
         >
-          <Icon className="h-4 w-4" strokeWidth={1.6} />
+          <EventTypeIcon type={event.event_type} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -87,24 +86,30 @@ function severityColor(s: TimelineEvent["severity"]): string {
   }
 }
 
-function eventTypeIcon(t: TimelineEvent["event_type"]) {
-  switch (t) {
+// Render the per-type icon as a literal element (not a dynamic `const Icon =
+// …; <Icon/>`), so each JSX element resolves to a statically-known, module-level
+// component — satisfying react-hooks/static-components while keeping the exact
+// same icon set, size, and stroke weight.
+function EventTypeIcon({ type }: { type: TimelineEvent["event_type"] }) {
+  const iconClass = "h-4 w-4";
+  const stroke = 1.6;
+  switch (type) {
     case "lab":
-      return FlaskConical;
+      return <FlaskConical className={iconClass} strokeWidth={stroke} />;
     case "imaging":
-      return ScanLine;
+      return <ScanLine className={iconClass} strokeWidth={stroke} />;
     case "visit":
-      return Stethoscope;
+      return <Stethoscope className={iconClass} strokeWidth={stroke} />;
     case "diagnosis":
-      return ClipboardList;
+      return <ClipboardList className={iconClass} strokeWidth={stroke} />;
     case "medication":
-      return Pill;
+      return <Pill className={iconClass} strokeWidth={stroke} />;
     case "procedure":
-      return Activity;
+      return <Activity className={iconClass} strokeWidth={stroke} />;
     case "referral":
-      return ArrowRightLeft;
+      return <ArrowRightLeft className={iconClass} strokeWidth={stroke} />;
     default:
-      return FileText;
+      return <FileText className={iconClass} strokeWidth={stroke} />;
   }
 }
 

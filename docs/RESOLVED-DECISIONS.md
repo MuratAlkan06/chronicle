@@ -180,3 +180,23 @@ LOCKED. Owner decision (Murat): Case 3 is the **last** independently hand-labele
 **Hazard closed (STATE cycle 17, issue #9).** The pre-existing `/eval` live tab **auto-ran** the Case 3 SSE extraction on route entry (`useEffect(() => start(), [])`). With a valid `ANTHROPIC_API_KEY`, **every visit to `/eval` was one Case 3 run** — a demo or casual page load could silently spend the terminal budget. (The degenerate-run guard in EVAL.md §6 only stops *empty*-key runs from persisting; a valid-key auto-run is a real measurement.)
 
 **Resolution.** `/eval` no longer auto-runs. The live tab opens on the cached fallback (`data/case3_eval_fallback.json` via `GET /api/eval/fallback`); a scored held-out run fires only behind an explicit **two-step inline confirm gate** — step 1 "Run live extraction…", step 2 an inline confirm that states plainly it spends the final scored Case 3 measurement, with a cancel escape and no native `window.confirm`. The gate is hidden while a run streams so it cannot double-fire. Pure state logic lives in `lib/eval-gate.ts` (`nextGatePhase` + `shouldStartRun`, unit-tested in `lib/eval-gate.test.ts`), rendered by `app/eval/page.tsx`; `scripts/eval-case3.ts` remains the deliberate CLI path for a measured run. Cross-reference: **docs/EVAL.md §6** (peek budget + owner-decision note).
+
+---
+
+### 11. Never run blanket `npm audit fix` on this repo — targeted in-range updates only (added 2026-07-25, STATE cycle 21)
+
+LOCKED. Derived from the issue #11 dependency audit (STATE.md cycle 21), which cut `npm audit` from 13 advisories (2 low / 4 moderate / 7 high) to **7 (0 low / 3 moderate / 4 high)** using lockfile-only bumps — `package.json` came out byte-identical.
+
+**(a) `npm audit fix` is measured net-negative here. Do not run it.**
+
+A blanket `npm audit fix` was tried and rejected: it takes the tree from **7 → 15 vulnerabilities (4 → 12 high)**. Bisected to a single package — `npm update brace-expansion` alone reproduces the same 7 → 15 / 4 → 12 regression by dragging eslint's minimatch chain (`@eslint/config-array`, `@eslint/eslintrc`, `eslint`, `eslint-config-next`, `eslint-plugin-{import,jsx-a11y,react}`, `minimatch`) into advisory range, while `npm update minimatch` alone is a no-op. Confirmed as **tree restructuring, not advisory-database drift**, by a clean-room control: re-auditing the *original* lockfile against the same-day advisory DB still returned exactly 13.
+
+**Remediation procedure instead:** targeted, in-range `npm update <pkg>` only — every bump must stay inside its dependents' declared ranges, so `package.json` never needs an edit and the diff is confined to `package-lock.json`. Verify each pass with a fresh `npm audit` **and** `npm ls --all` (expect exit 0 / 0 invalid), then `npx tsc --noEmit`, `npm test`, `npm run build`. The advisory count alone is not sufficient evidence: a bump that looks in-range can still restructure shared transitive chains, which is exactly how the blanket fix regressed the tree — so re-resolve and re-audit the whole tree after every pass rather than trusting the targeted package in isolation.
+
+**(b) The remaining 4 high + 3 moderate advisories are externally gated, not oversights.**
+
+- **3 of the 4 highs are gated on the exact `next@16.2.6` pin.** `package.json` pins next **exactly** (`"next": "16.2.6"`, no caret), so the only fix — 16.2.11 — is outside the stated range; the surviving nested `postcss@8.4.31` lives at `node_modules/next/node_modules/postcss`, which next declares as an **exact** pin (an `overrides` entry would violate the consumer range); and `sharp` needs ≥0.35.0 while next's `optionalDependencies.sharp` is `^0.34.5` (= `>=0.34.5 <0.35.0`). **All three clear together when next moves.** The next 16.2.11 bump is therefore **its own future slice** with a real regression pass — the single highest-value dependency follow-up, and not something to smuggle into an unrelated cycle.
+- **The 4th high is `brace-expansion`,** deliberately left per (a) — fixing it in isolation *is* the net-negative case above.
+- **The 3 moderates (`shadcn` + `@hono/node-server` + `@modelcontextprotocol/sdk`) would need a semver-major downgrade — rejected.** The offered fix is `shadcn@3.8.3`, down from `^4.7.0`. Rejected because it is a major-version regression of a **build-time CLI**, not shipped runtime code, so the advisory exposure never reaches users of the deployed app.
+
+Cross-reference: **STATE.md cycle 21** (per-package bump table, full deferral reasons, and verification evidence) and issue #11.
