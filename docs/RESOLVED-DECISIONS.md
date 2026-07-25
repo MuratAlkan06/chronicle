@@ -183,7 +183,7 @@ LOCKED. Owner decision (Murat): Case 3 is the **last** independently hand-labele
 
 ---
 
-### 11. Never run blanket `npm audit fix` on this repo — targeted in-range updates only (added 2026-07-25, STATE cycle 21)
+### 11. Never run blanket `npm audit fix` on this repo — targeted in-range updates only (added 2026-07-25, STATE cycle 21) — **PARTIALLY REFUTED**
 
 LOCKED. Derived from the issue #11 dependency audit (STATE.md cycle 21), which cut `npm audit` from 13 advisories (2 low / 4 moderate / 7 high) to **7 (0 low / 3 moderate / 4 high)** using lockfile-only bumps — `package.json` came out byte-identical.
 
