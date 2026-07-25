@@ -140,7 +140,10 @@ function PanelBody({
         <p className="mt-3 font-mono text-[11px] tracking-wider text-ink-subtle">
           source · {event.source.document_id} · p.{event.source.page}
         </p>
-        <ExplainerSection event={event} />
+        {/* Keyed by event.id so switching events remounts the section — a clean
+            reset of its stream state, and its unmount cleanup aborts any
+            in-flight request (replaces the former reset effect). */}
+        <ExplainerSection key={event.id} event={event} />
       </div>
 
       <div className="flex-1 overflow-auto p-4">
@@ -155,7 +158,9 @@ function PanelBody({
             {source ? "Loading viewer…" : "Source PDF unavailable."}
           </div>
         )}
+        {/* Keyed by event.id (same reset-on-event-change rationale as above). */}
         <RelatedSection
+          key={event.id}
           event={event}
           allEvents={allEvents}
           onSelect={onSelect}
@@ -176,14 +181,6 @@ function ExplainerSection({ event }: { event: TimelineEvent }) {
   );
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  // Reset whenever the active event changes.
-  useEffect(() => {
-    abortRef.current?.abort();
-    setText("");
-    setStatus("idle");
-    setError(null);
-  }, [event.id]);
 
   const start = useCallback(() => {
     abortRef.current?.abort();
@@ -317,14 +314,29 @@ function RelatedSection({
   onSelect: (event: TimelineEvent) => void;
 }) {
   const [hits, setHits] = useState<RelatedHit[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "empty" | "error">(
-    "idle",
-  );
+  // Starts in "loading": the fetch effect runs immediately on mount, and
+  // switching events remounts this section via its key (see PanelBody), so a
+  // fresh mount always begins in the loading state.
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "done" | "empty" | "error"
+  >("loading");
+
+  // The fetch below also re-runs *without* a remount: `allEvents` is the live
+  // candidate pool, whose identity changes on every batch the extraction stream
+  // appends. Each re-run must return to the loading state, or hits computed
+  // from a partial pool stay on screen as settled results and then silently
+  // reorder under the cursor — these are click targets. Done as an
+  // adjust-state-during-render (same pattern as pdf-viewer.tsx) rather than a
+  // synchronous setState inside the effect.
+  const [fetchKey, setFetchKey] = useState({ eventId: event.id, allEvents });
+  if (fetchKey.eventId !== event.id || fetchKey.allEvents !== allEvents) {
+    setFetchKey({ eventId: event.id, allEvents });
+    setStatus("loading");
+    setHits([]);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
-    setStatus("loading");
-    setHits([]);
     void fetch("/api/related", {
       method: "POST",
       signal: controller.signal,

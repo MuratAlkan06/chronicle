@@ -214,14 +214,22 @@ function TabButton({
 function CachedPanel() {
   const [caseId, setCaseId] = useState<CaseId>("case1");
   const [data, setData] = useState<CachedEvalResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Initial "loading" because the fetch effect runs on mount. When the case
+  // toggle changes, the block below resets these back to loading during render
+  // (adjust-state-on-prop-change) rather than via a synchronous setState in the
+  // effect.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
+  const [prevCaseId, setPrevCaseId] = useState(caseId);
+  if (prevCaseId !== caseId) {
+    setPrevCaseId(caseId);
     setLoading(true);
     setError(null);
     setData(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     fetch(`/api/eval?case=${caseId}&mode=cached`)
       .then(async (r) => {
         if (!r.ok) {
