@@ -1,6 +1,6 @@
 # Chronicle — Resolved Decisions (paper trail)
 
-**Status: all 7 items locked pre-H0.** This file is the resolved version of `OPEN-DECISIONS.md`, kept for the audit trail. PLAN.md links here for the reasoning behind decisions referenced elsewhere in the docs.
+**Status: a living decision log — items 1-7 were locked pre-H0; items 8 and up were appended later, each as its decision was resolved.** This file is the resolved version of `OPEN-DECISIONS.md`, kept for the audit trail. PLAN.md links here for the reasoning behind decisions referenced elsewhere in the docs.
 
 ---
 
@@ -193,10 +193,32 @@ A blanket `npm audit fix` was tried and rejected: it takes the tree from **7 →
 
 **Remediation procedure instead:** targeted, in-range `npm update <pkg>` only — every bump must stay inside its dependents' declared ranges, so `package.json` never needs an edit and the diff is confined to `package-lock.json`. Verify each pass with a fresh `npm audit` **and** `npm ls --all` (expect exit 0 / 0 invalid), then `npx tsc --noEmit`, `npm test`, `npm run build`. The advisory count alone is not sufficient evidence: a bump that looks in-range can still restructure shared transitive chains, which is exactly how the blanket fix regressed the tree — so re-resolve and re-audit the whole tree after every pass rather than trusting the targeted package in isolation.
 
+**Fresh independent reinforcement (added 2026-07-25, STATE cycle 22 / issue #13).** On the bumped 16.2.11 tree, `npm audit` reports `fixAvailable: {"name":"next","version":"9.3.3","isSemVerMajor":true}` for all three next-gated advisories — npm's proposed "fix" is a **downgrade to Next 9**, seven majors back. Independent confirmation that this tool's remediation advice is not trustworthy on this repo: `npm audit` is a *reporting* surface here, never a *remediation* one.
+
 **(b) The remaining 4 high + 3 moderate advisories are externally gated, not oversights.**
+
+> **REFUTED IN PART (2026-07-25, STATE cycle 22 / issue #13).** The first bullet's closing claim — **"All three clear together when next moves."** — is **factually wrong**, refuted by an independent security review against the npm registry packument. `next` moved to 16.2.11 and cleared on its own; `postcss` and `sharp` did **not** move with it. The bullet is preserved verbatim below for the audit trail. **Read (b.1) at the end of this item for the corrected, registry-verified reasoning** before acting on anything in that bullet.
 
 - **3 of the 4 highs are gated on the exact `next@16.2.6` pin.** `package.json` pins next **exactly** (`"next": "16.2.6"`, no caret), so the only fix — 16.2.11 — is outside the stated range; the surviving nested `postcss@8.4.31` lives at `node_modules/next/node_modules/postcss`, which next declares as an **exact** pin (an `overrides` entry would violate the consumer range); and `sharp` needs ≥0.35.0 while next's `optionalDependencies.sharp` is `^0.34.5` (= `>=0.34.5 <0.35.0`). **All three clear together when next moves.** The next 16.2.11 bump is therefore **its own future slice** with a real regression pass — the single highest-value dependency follow-up, and not something to smuggle into an unrelated cycle.
 - **The 4th high is `brace-expansion`,** deliberately left per (a) — fixing it in isolation *is* the net-negative case above.
 - **The 3 moderates (`shadcn` + `@hono/node-server` + `@modelcontextprotocol/sdk`) would need a semver-major downgrade — rejected.** The offered fix is `shadcn@3.8.3`, down from `^4.7.0`. Rejected because it is a major-version regression of a **build-time CLI**, not shipped runtime code, so the advisory exposure never reaches users of the deployed app.
 
 Cross-reference: **STATE.md cycle 21** (per-package bump table, full deferral reasons, and verification evidence) and issue #11.
+
+**(b.1) CORRECTION to (b), first bullet — appended 2026-07-25, STATE cycle 22, issue #13.**
+
+The refuted claim is *"All three clear together when next moves."* **Only the first clears when next moves.**
+
+Verified against the registry (issue #13): every stable Next.js 16.x release — all of 16.0.x, 16.1.x and 16.2.0 through `latest` = 16.2.11 — declares `dependencies.postcss` as the **exact pin `8.4.31`** (advisory range `<=8.5.17`) and `optionalDependencies.sharp` as `^0.34.x` (fix needs `>=0.35.0`). Bumping to 16.2.11 clears the 9 first-party Next.js advisories but leaves `postcss` and `sharp` untouched, so `npm audit` stays at **7 total / 4 high**. The unreleased 16.3 line clears `sharp` at `16.3.0-preview.8` (`^0.35.3`) but still ships `postcss@8.5.10`, which remains inside GHSA-6g55-p6wh-862q (`<=8.5.11`) and GHSA-r28c-9q8g-f849 (`<=8.5.17`). **`postcss` therefore has no upstream remediation path at any published `next` version and must be tracked as accepted risk, not as a pending bump.**
+
+Two further findings from the same review, both load-bearing:
+
+- **This is a vendored-copy problem, not a repo hygiene problem.** The repo's OWN top-level `node_modules/postcss` is already **8.5.23** — fully patched, from the cycle-21 in-range bump. The only vulnerable copy anywhere in the tree is next's private nested `node_modules/next/node_modules/postcss@8.4.31`. Nothing about our direct dependency declarations can reach it, and an `overrides` entry would violate next's exact declared pin (as (b) already noted).
+- **npm's proposed fix is a downgrade to Next 9.** `npm audit` reports `fixAvailable: {"name":"next","version":"9.3.3","isSemVerMajor":true}` for all three advisories — recorded in (a) above as fresh, independent reinforcement of the never-run-`npm audit fix` rule.
+
+**Accepted risks and their reachability basis.** Both remaining next-gated highs are accepted, not pending:
+
+- **`postcss` (high ×2) — build-time only.** Both advisories require attacker-controlled `sourceMappingURL` comments in CSS input. The entire CSS input set of this app is one first-party file (`app/globals.css`) plus the Tailwind plugin. No postcss executes per-request in production.
+- **`sharp` / libvips (high) — unreachable by CONFIGURATION.** `next.config.ts` sets no `images` config, so `remotePatterns`/`domains` are empty and `/_next/image` rejects all remote URLs; `public/` holds only SVGs, which Next does not pass to sharp (`dangerouslyAllowSVG` defaults false); and the sole upload path (`app/api/extract/route.ts`) takes PDFs and writes nothing to disk. **This acceptance rests on configuration, NOT on the absence of a `next/image` import** — the `/_next/image` endpoint is served by default regardless of whether any component imports `next/image`. **Re-evaluate if `next/image` is adopted or any raster asset lands in `public/`.** A tripwire for exactly that is wired into `scripts/screenshot-app.ts`, whose default `OUT` is `public/hero-app.png` and whose end-of-run instructions point at `next/image`.
+
+Cross-reference: **STATE.md cycle 22** (measurement, verification evidence, and the falsified-hypothesis record), issue #13, and issue #14 (the `@emnapi` lockfile-drift recurrence risk surfaced by the same slice).

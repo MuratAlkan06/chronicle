@@ -50,6 +50,12 @@ import { mkdirSync } from "node:fs";
 
 const PORT = process.env.PORT ?? "3000";
 const CASE = (process.env.CASE ?? "case1") as "case1" | "case2" | "case3";
+// TRIPWIRE — this default writes a RASTER image into public/. See
+// docs/RESOLVED-DECISIONS.md #11(b)/(b.1): the sharp/libvips high advisory is
+// accepted as unreachable BY CONFIGURATION, and one leg of that argument is
+// that public/ holds SVGs only (Next never hands SVGs to sharp). Committing a
+// raster asset here re-opens that exposure and requires re-evaluating the
+// accepted risk. Writing it to a scratch path outside public/ does not.
 const OUT = process.env.OUT ?? "public/hero-app.png";
 const VIEWPORT_W = Number.parseInt(process.env.VIEWPORT_W ?? "1280", 10);
 const VIEWPORT_H = Number.parseInt(process.env.VIEWPORT_H ?? "800", 10);
@@ -207,9 +213,15 @@ async function main(): Promise<void> {
     console.log(``);
     console.log(`[screenshot-app] next:`);
     console.log(`[screenshot-app]   1. open ${OUT} and eyeball it — is the timeline visible? side panel populated? severity colors distinct?`);
-    console.log(`[screenshot-app]   2. if yes: replace the AppMockup component in app/page.tsx Section 03 with <Image src="/${OUT.replace(/^public\//, "")}" ... />`);
+    // TRIPWIRE — step 2 below adopts next/image AND lands a raster asset in
+    // public/. Together those re-open the sharp/libvips exposure that
+    // docs/RESOLVED-DECISIONS.md #11(b)/(b.1) accepts as unreachable by
+    // configuration. Note the acceptance does NOT rest on "nothing imports
+    // next/image" — /_next/image is served by default either way — so
+    // re-evaluate that accepted risk before following this instruction.
+    console.log(`[screenshot-app]   2. if yes: replace the AppMockup component in app/page.tsx Section 03 with <Image src="/${OUT.replace(/^public\//, "")}" ... /> — but FIRST re-evaluate the accepted sharp/libvips risk in docs/RESOLVED-DECISIONS.md #11(b)/(b.1); a raster asset in public/ plus next/image re-opens it`);
     console.log(`[screenshot-app]   3. if no: re-run with different env vars (OPEN_SIDE_PANEL=1, EVENT_INDEX, viewport, WAIT_MS) until the framing reads as the wow-moment`);
-    console.log(`[screenshot-app]   4. delete public/placeholder-hero.png — orphaned since the HeroScrollBoard pivot`);
+    console.log(`[screenshot-app]   4. if you do NOT adopt it, delete the generated ${OUT} — do not leave an orphaned raster behind (public/ is otherwise SVG-only, which is one leg of the #11(b)/(b.1) risk acceptance)`);
   } finally {
     await browser.close();
   }
