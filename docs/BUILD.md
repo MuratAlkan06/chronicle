@@ -81,7 +81,7 @@ Critical: Case 3 PDFs and ground truth come FIRST. Cases 1+2 PDFs come SECOND. F
 - Run a single curl test against Sonnet 4.6 with one real Case 1 PDF — verify response shape includes citations attached to text blocks. **This is the single highest-risk verification.** If the response shape differs from what [extraction-prompt-v1.md](extraction-prompt-v1.md) assumes, adjust `lib/claude.ts` parsing accordingly — but do this fix before H0, not during.
 
 **[MURAT] Block 6 (~30 min): Repo init + lockfiles.**
-- `npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --no-turbopack --use-npm --import-alias "@/*"` (installs in current dir — the project root IS chronicle). (As-built: Next 16.2.6, React 19.2.4, Tailwind v4, ESLint 9.)
+- `npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --no-turbopack --use-npm --import-alias "@/*"` (installs in current dir — the project root IS chronicle). (As-built: Next 16.2.6, React 19.2.4, Tailwind v4, ESLint 9.) **Current version is Next 16.2.11** — bumped in STATE.md cycle 22 (issue #13); the as-built line is the H0 historical record, not the live version. Note also that the `--no-turbopack` flag above does not describe how the app builds today: **Next 16 defaults to Turbopack for both dev and build**, and `next.config.ts` is empty, so the build banner reads `▲ Next.js 16.2.11 (Turbopack)`.
 - Install: `npm i @anthropic-ai/sdk react-pdf react-dropzone framer-motion zod lucide-react`.
 - `npx shadcn@latest init` then `npx shadcn add button card dialog sheet badge separator scroll-area`.
 - Copy `pdf.worker.min.mjs` from `node_modules/pdfjs-dist/build/` to `public/` (pdfjs-dist 5.x ships the worker as ESM).
