@@ -57,6 +57,17 @@
  *     therefore a complete answer key to the original labels AND to their
  *     granularity, laid over the documents.
  *
+ *     **And so is a COUNT of them.** Markers are paired: halve a per-document
+ *     marker-line count and you have that document's original event count; sum
+ *     them and you have the case total. Until 2026-07-26 this script printed
+ *     exactly that number twice — in every packet document's provenance header,
+ *     four lines under the `source_document` value the labeler must copy, and
+ *     again in the closing per-case summary. All 13 documents' original event
+ *     counts were recoverable by dividing by two, and the packet README stated
+ *     the decoding rule outright. Both numbers are gone; see the count invariant
+ *     in `lib/label-packet.ts` for the rule that replaced them and Amendment 3
+ *     of docs/PREREG-24-blind-relabel.md for what it invalidated.
+ *
  *     They do NOT "map 1-1 onto `events.json` `source.snippet` anchors" — the
  *     claim this comment and the packet README both carried until 2026-07-26.
  *     Measured: several marked blocks have no prediction snippet, and rather
@@ -81,6 +92,13 @@
  *     README's "What was withheld" withholds it without naming it, which is the
  *     only way a withheld anchor stays withheld.
  *
+ * RENDERING LIVES IN `lib/label-packet.ts`. `npm test` runs `lib/*.test.ts` and
+ * nothing else, so while the rendering was in this file no test executed one
+ * line of it. This file is now the IO half — allowlist, denylist, ledgers,
+ * clobber guard, argv guards — and `lib/label-packet.test.ts` covers the other
+ * half, including an end-to-end run of THIS script into a temp root that asserts
+ * the emitted tree and this script's own stdout carry no recoverable count.
+ *
  * Usage:
  *   npx tsx scripts/make-label-packet.ts                 # case1 + case2
  *   npx tsx scripts/make-label-packet.ts case1
@@ -95,8 +113,21 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 
 import { createHash } from "node:crypto";
 import { join, resolve, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { EventTypeSchema, DateConfidenceSchema } from "../lib/schema";
 import { leakSources, type LeakSource } from "../lib/label-leak-sources";
+import {
+  PROTOCOL_BLOCKS,
+  PROMPT_BLOCKS,
+  SITTING_RULE_LINES,
+  type ProtocolBlock,
+  type PacketDoc,
+  docOrder,
+  stripSnippetMarkers,
+  hasMarkerResidue,
+  templateJson,
+  sittingState,
+  packetReadme,
+  packetDocFile,
+} from "../lib/label-packet";
 
 const TAG = "[label-packet]";
 
@@ -161,6 +192,11 @@ const DENY_PATTERNS: Array<{ re: RegExp; why: string }> = [
  * that gate in one edit. See Amendment 2 of docs/PREREG-24-blind-relabel.md for
  * why the list stopped being maintainable by hand.
  *
+ * It is NOT the definition of what the labeler may not open — that is the closed
+ * default in `SITTING_RULE_LINES`, which both the README and the banner below
+ * render, and which this list only illustrates. An enumeration permits by
+ * omission, and it did, three times.
+ *
  * It is the HUMAN-side counterpart to DENY_PATTERNS above. The generator is
  * structurally blind: not one of these paths is on the allowlist, several are on
  * the denylist, and no byte of any of them can reach a packet. That does nothing
@@ -198,12 +234,25 @@ function reportLeakSources(cases: CaseId[]): void {
   console.log("=".repeat(96));
   console.log(`${TAG} BEFORE YOU LABEL — your PACKET is blind. This REPOSITORY is not.`);
   console.log("=".repeat(96));
-  console.log("  This generator cannot read any path below, and no byte of any of them is in your");
-  console.log("  packet. It also cannot stop you opening one. Each carries the original");
-  console.log("  ground-truth titles for these cases, the model's predicted titles, or the event");
-  console.log("  count and segmentation the labels were written at — and title phrasing is the");
-  console.log("  single quantity this experiment exists to measure. There is no partial");
-  console.log("  contamination: one line read is the measurement gone.");
+  // THE rule, rendered from the same constant the packet README renders, because
+  // a banner that says something subtly different from the packet is a
+  // contradiction resolved by whoever happens to be reading one of them.
+  for (const line of SITTING_RULE_LINES) console.log(`  ${line}`);
+  console.log("");
+  console.log("  That is the protocol's own first line — label in one sitting, working ONLY from");
+  console.log("  the packet — stated as a closed default rather than as a list of forbidden files,");
+  console.log("  because the list has been wrong three times and each miss was a file nobody had");
+  console.log("  thought to name. Everything the labeler needs is inlined in the packet, which is");
+  console.log("  what makes a closed default liveable rather than merely strict.");
+  console.log("");
+  console.log("  The paths below are EXAMPLES OF WHAT THE RULE CLOSES, not the rule. Nothing is");
+  console.log("  permitted by being absent from them. This generator cannot read any of them and");
+  console.log("  no byte of any of them is in the packet; it also cannot stop you opening one.");
+  console.log("  Each carries the original ground-truth titles for these cases, the model's");
+  console.log("  predicted titles, or the event count and segmentation the labels were written");
+  console.log("  at — and title phrasing is the single quantity this experiment exists to");
+  console.log("  measure. There is no partial contamination: one line read is the measurement");
+  console.log("  gone.");
   console.log("");
   for (const s of present) {
     console.log(`  DO NOT OPEN   ${s.path}`);
@@ -216,13 +265,20 @@ function reportLeakSources(cases: CaseId[]): void {
       .join(", ")}`);
   }
   console.log("");
-  console.log("  This list is lib/label-leak-sources.ts, the same array the packet README renders");
-  console.log("  and `npx tsx scripts/check-label-leaks.ts` enforces — that gate greps every");
-  console.log("  tracked file for verbatim original titles and fails on any hit not listed above.");
-  console.log("  It cannot see paraphrase, and it cannot see count or granularity leaks, so if you");
-  console.log("  catch yourself weighing whether some OTHER file is safe, apply the test directly:");
-  console.log("  does it quote a title, a prediction, or an event count for one of these two");
-  console.log("  cases? If you cannot answer that without opening it, do not open it.");
+  console.log("  OPEN, exhaustively: your packet directory, and the PDFs under");
+  console.log("  data/cases/<case>/docs/. Those PDFs are the documents themselves, and the");
+  console.log("  protocol quoted in your packet tells you to open them in a PDF viewer. Nothing");
+  console.log("  else in that directory is open to you. Listing it is not opening a file in it —");
+  console.log("  but the answer key is the next entry along, so decide before you go in there,");
+  console.log("  not while you are in there.");
+  console.log("");
+  console.log("  If you catch yourself weighing whether some OTHER file is safe, you have already");
+  console.log("  left the packet. You do not have to work out what it contains; the answer is no.");
+  console.log("  And if the packet is missing something you genuinely need, that is a defect in");
+  console.log("  the packet — report it rather than going to look for it.");
+  console.log("");
+  console.log("  Your commands are validate-blind-labels.ts and, once every packet is labeled,");
+  console.log("  compare-relabel.ts. No others.");
 }
 
 function repoRel(abs: string): string {
@@ -293,152 +349,6 @@ function writePacket(abs: string, content: string): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// PROTOCOL — inlined verbatim from docs/EVAL.md §5 ("step-by-step for Murat —
-// writing Case 3 ground-truth labels").
-//
-// Items 4 and 5 of "Common mistakes" are reproduced in their ORIGINAL, FALSE
-// form because reproducing the conditions Case 3's labels were authored under
-// is the entire point of the experiment. They are not softened. §7's correction
-// markers ride along (they are part of the line in docs/EVAL.md today) and
-// CORRECTIONS below states the mechanism, so the labeler is marked-but-not-
-// deceived, exactly as docs/EVAL.md handles it in place.
-//
-// `verifyProtocolFidelity` asserts at runtime that every block below appears
-// verbatim in docs/EVAL.md, so this copy cannot drift from the source silently.
-// ---------------------------------------------------------------------------
-interface ProtocolBlock {
-  label: string;
-  text: string;
-}
-
-const PROTOCOL_BLOCKS: ProtocolBlock[] = [
-  {
-    label: "What to label",
-    text: "**What to label.** Every clinically discrete event as defined by the system prompt's \"What counts as ONE event\" section. *Use the prompt as your labeling spec.* Read the prompt's event definition first, then label according to it. This sounds circular but it's actually correct: you are evaluating whether the model FOLLOWS the spec. If your labels don't follow the spec, you're testing the wrong thing.",
-  },
-  {
-    label: "The labeling unit",
-    text: "**The labeling unit.** ONE event per discrete clinical moment. If a single doctor's note encounter included a visit + a new diagnosis + a med change, that's THREE events with the same date and source_document.",
-  },
-  {
-    label: "How to label without contamination",
-    text: [
-      "**How to label without contamination.**",
-      "1. **Do NOT run the model first.** Do not extract Case 3 with any prompt. Do not even sanity-check. The first time the model touches Case 3 PDFs is at H11.",
-      "2. **Open Case 3 PDFs in chronological order**, one at a time, in your PDF viewer. Read each cover-to-cover before labeling.",
-      "3. For each PDF, write your labels in `ground_truth.json` directly. Use the schema above.",
-      "4. Mark `in_scope: false` for events where you genuinely think two reasonable extractors would disagree on whether to include it. Be generous with this — false-positive scope is fine, missing scope is bad. (You'd rather exclude a borderline event from the FN denominator than punish the model for not matching your idiosyncratic call.)",
-    ].join("\n"),
-  },
-  {
-    label: "Handling ambiguous cases",
-    text: [
-      "**Handling ambiguous cases.**",
-      "- *Doctor's note mentions a previous referral that already happened:* label it as a separate `referral` event with the previous date if the note states a date; mark `date_confidence` as approximate or inferred. If the note says \"previously referred to ortho\" with no date, do NOT label — there's no event to anchor.",
-      "- *Doctor's note mentions a planned future MRI:* do NOT label. The system prompt explicitly excludes forward plans.",
-      "- *Multiple labs on one panel:* ONE event for the panel, with the most-relevant analyte in `notes`. Do not emit per-analyte events. (Match the system prompt rule.)",
-      "- *A med refill that's just continuing existing med at same dose:* do NOT label unless the document explicitly re-confirms the med on this date as a distinct decision.",
-      "- *A prior diagnosis re-listed in the problem list:* do NOT label as a new diagnosis event.",
-    ].join("\n"),
-  },
-  {
-    label: "Common mistakes to actively avoid",
-    text: [
-      "**Common mistakes to actively avoid:**",
-      "1. **Hindsight bias.** You will be tempted later to add events the model surfaced that you missed. **Do not.** If you added events post-hoc the metric is a self-fulfilling prophecy. Set the file as read-only after labeling: `chmod 444 held_out/case3/ground_truth.json`.",
-      "2. **Label drift.** Stretching labeling across days lets your \"what counts as an event\" intuition shift. Do it in one sitting.",
-      "3. **Pollution from running predictions in parallel.** Don't have the extraction code open in another window. Don't be tempted to \"just see what it does.\"",
-      "4. **Title bias.** Don't write titles in the same phrasing the model would use. Write naturally — the matching algorithm uses token-overlap precisely so phrasing differences don't break matching. **[Corrected 2026-07-25 — the second sentence is false as stated. See the correction note below and §7.]**",
-      "5. **Date over-precision.** If the document says \"March 2024\" don't pick a specific day to make matching easier; use `2024-03-01` and `date_confidence: approximate`. The matching algorithm is calibrated for this. **[Corrected 2026-07-25 — the last sentence is false as stated; the instruction itself stands. See the correction note below and §7.]**",
-    ].join("\n"),
-  },
-];
-
-// ---------------------------------------------------------------------------
-// GRANULARITY SPEC — inlined from prompts/system_extract_v4.md.
-//
-// §5's protocol says "Use the prompt as your labeling spec", and granularity is
-// the largest confound in this experiment after phrasing, so the labeler needs
-// these rules. But the prompt FILE cannot be handed over: its v3-vs-v2
-// versioning note quotes four original Case 1 ground-truth visit titles
-// verbatim, and its "Title (≤ 70 chars)" section carries the per-type title
-// templates the model was tuned on — either would destroy the measurement.
-//
-// So the leak-free rule blocks are inlined here and fidelity-checked against the
-// prompt file exactly as the §5 protocol is. Two passages are NOT reproduced,
-// because their originals use examples drawn from these very documents (a
-// specific scheduled-biopsy date; specific lab values, imaging findings and
-// medication doses). Their replacements are generator-authored, marked as such
-// in the packet, and carry the same rule with the examples removed.
-// ---------------------------------------------------------------------------
-const PROMPT_BLOCKS: ProtocolBlock[] = [
-  {
-    label: "What counts as ONE event — inclusions",
-    text: [
-      "ONE event = one clinically discrete moment in the record:",
-      "- a single lab order/result (one event per panel ordered on one date,",
-      "  with the panel's notable values aggregated; do NOT emit one event per",
-      "  analyte unless the document treats them as separate orders)",
-      "- a single visit/encounter (one event per encounter date with one provider)",
-      "- a single imaging study (CT, MRI, X-ray, mammogram — one per study)",
-      "- a single diagnosis added to the problem list",
-      "- a single medication started, stopped, or dose-changed",
-      "- a single procedure performed",
-      "- a single referral placed",
-    ].join("\n"),
-  },
-  {
-    label: "What counts as ONE event — exclusions (leading)",
-    text: [
-      "Do NOT emit:",
-      "- patient demographics, insurance, header/footer text",
-      '- "no change" or "continues" mentions of prior events (they are context,',
-      "  not new events) UNLESS the document explicitly RE-CONFIRMS a finding on",
-      "  a new date",
-    ].join("\n"),
-  },
-  {
-    label: "What counts as ONE event — exclusions (trailing)",
-    text: [
-      "- the document's own metadata (date faxed, date printed, signed by) unless",
-      "  it IS the event date",
-    ].join("\n"),
-  },
-  {
-    label: "Primary-source rule — body",
-    text: [
-      "Emit an event ONLY when THIS document is the PRIMARY SOURCE of that event.",
-      "A document is the primary source when it is the document that:",
-      "- reports a lab/imaging result for the first time (the lab report itself,",
-      "  not a later visit note that recaps it)",
-      "- records a visit/encounter being conducted (the visit note for that",
-      "  encounter, not a follow-up note that mentions it)",
-      "- records a diagnosis being added to the active problem list (not a later",
-      "  note that lists it as PMH)",
-      "- records a medication being started, stopped, or dose-changed (not a",
-      "  later note that lists it as a current medication unchanged)",
-      "- records a procedure being performed (not the surgical consult that",
-      "  scheduled it, not the follow-up note that recaps the pathology result)",
-      "- records a referral being placed (not a later note that mentions the",
-      "  patient was previously referred)",
-    ].join("\n"),
-  },
-  {
-    label: "Primary-source rule — closing test",
-    text: [
-      'When in doubt, ask: "is this document the one PERFORMING, DECIDING, or',
-      'REPORTING this event for the first time?" If no, do not emit.',
-    ].join("\n"),
-  },
-];
-
-/** Generator-authored stand-ins for the two prompt passages whose originals use
- * examples taken from these documents. Marked as replacements in the packet. */
-const REPLACED_FORWARD_PLANS =
-  "- forward-looking plans (an intention recorded for a future date) — these\n  describe intentions, not occurrences";
-const REPLACED_REFERENCE_PARAGRAPH =
-  "If this document merely REFERENCES a prior event for context, do NOT emit a new\nevent for that reference. The event has been (or will be) captured from its own\nprimary source document, and emitting it again creates duplicates.";
 
 interface FidelityResult {
   label: string;
@@ -455,163 +365,12 @@ function verifyFidelity(relPath: string, blocks: ProtocolBlock[]): FidelityResul
 }
 
 // ---------------------------------------------------------------------------
-// Corrections. Written here, not quoted from §7: §7's prose is interleaved with
-// original GT titles and with dev-set aggregate figures (event counts, F1
-// curves), all of which would anchor a blind labeler. These state the mechanism
-// and nothing measured about Cases 1+2.
-// ---------------------------------------------------------------------------
-const CORRECTIONS = `> **READ THIS BEFORE THE PROTOCOL ABOVE TAKES EFFECT (docs/EVAL.md §7,
-> issues #22 and #25).** Items 4 and 5 above are quoted in their original form
-> on purpose — they are the instructions Case 3's ground truth was authored
-> under, and this relabeling exists to reproduce those conditions. They are
-> **not** softened here. But their closing assurances are false, and you are
-> told so rather than deceived:
->
-> **Item 4's second sentence is false.** \`matchesEvent\` scores
-> \`|A ∩ B| / max(|A|, |B|)\` over token *sets* and requires ≥ 0.5, so the score
-> is capped at \`min/max\` **before any word is compared**. A label whose token
-> count is less than half its prediction's can never match, however clinically
-> correct it is. Token overlap tolerates rephrasing only while the two titles
-> stay within 2× on token count. Item 4's *first* sentence — don't copy the
-> model's phrasing — is sound labeling practice on its own; the false part is
-> the assurance that the metric makes it costless.
->
-> **Item 5's closing sentence is false too, on narrower grounds.** "The matching
-> algorithm is calibrated for this" describes behavior that does not exist:
-> \`matchesEvent\` never reads \`date_confidence\` at all. There is no widening of
-> date tolerance for an approximate date anywhere in \`lib/eval.ts\`. Strict
-> requires an exact day; loose accepts ±3 days. **Item 5's actual instruction
-> stands** — a month-only date recorded as the 1st with
-> \`date_confidence: approximate\` is correct labeling, and inventing a specific
-> day would be worse; only the closing assurance is wrong.
->
-> **What to do with that.** Nothing. Label as the protocol says, in your own
-> words, at the granularity the documents support. Do **not** try to write
-> titles that will match — that is the co-phrasing this experiment measures, and
-> steering toward it destroys the measurement. If your phrasing costs the model
-> a match, that cost is the finding.`;
-
-function granularitySection(): string {
-  const b = (label: string): string => {
-    const found = PROMPT_BLOCKS.find((x) => x.label === label);
-    return found ? found.text : `!! missing block: ${label}`;
-  };
-
-  return `Part A tells you to use the system prompt as your labeling spec, and
-granularity — how many events one encounter is worth — is the thing that spec
-decides. **Do not open \`prompts/system_extract_v4.md\` for this sitting.** Its
-versioning notes quote original ground-truth titles for these cases verbatim,
-and its "Title" section carries the per-type title templates the model was tuned
-to produce. Either one would destroy the measurement this relabeling exists to
-take.
-
-The rule blocks you need are reproduced below, verbatim from that file. Two
-passages are **replaced** rather than quoted, because their originals illustrate
-the rule with examples quoted out of these very documents (specific dates and
-specific clinical values). Both replacements are marked \`[REPLACED]\` and carry
-the same rule with the examples removed. Nothing else is altered.
-
-**What counts as ONE event**
-
-\`\`\`
-${b("What counts as ONE event — inclusions")}
-
-${b("What counts as ONE event — exclusions (leading)")}
-${REPLACED_FORWARD_PLANS}   <-- [REPLACED]
-${b("What counts as ONE event — exclusions (trailing)")}
-\`\`\`
-
-**Primary-source rule (NON-NEGOTIABLE)**
-
-\`\`\`
-${b("Primary-source rule — body")}
-
-[REPLACED]
-${REPLACED_REFERENCE_PARAGRAPH}
-
-${b("Primary-source rule — closing test")}
-\`\`\`
-
-Two notes on using this, neither of which is a hint about these documents:
-
-- The primary-source rule and §5's "Handling ambiguous cases" bullets overlap and
-  agree. Where they seem to conflict, follow the primary-source rule — it is the
-  spec the model was actually given.
-- The prompt is the *model's* spec. You are not required to agree with it. If you
-  think a rule produces the wrong label, label what you think is right and say so
-  in \`labeler_notes\`. A documented disagreement is a finding; a silent one is
-  noise.`;
-}
-
-// ---------------------------------------------------------------------------
-// Blind-label template.
-// ---------------------------------------------------------------------------
-const STUB_KEY = "_comment_DELETE_THIS_BEFORE_LABELING";
-const PLACEHOLDER_PATIENT = "REPLACE_WITH_PATIENT_NAME_AGE_SEX_FROM_DOCUMENTS";
-const PLACEHOLDER_LABELED_AT = "REPLACE_WITH_ISO_TIMESTAMP_AT_END_OF_LABELING";
-const PLACEHOLDER_NOTES = "REPLACE_WITH_FREE_TEXT_JUDGMENT_CALLS_MADE_WHILE_LABELING";
-
-function templateJson(caseId: CaseId): string {
-  const template = {
-    case_id: caseId,
-    patient: PLACEHOLDER_PATIENT,
-    labeled_at: PLACEHOLDER_LABELED_AT,
-    labeler_notes: PLACEHOLDER_NOTES,
-    events: [
-      {
-        [STUB_KEY]:
-          "Template stub. Delete this whole object, then add one object per event with these same keys. `notes` is the only optional key. scripts/validate-blind-labels.ts refuses the file while this key is present anywhere.",
-        id: "gt_001",
-        date: "REPLACE_YYYY-MM-DD",
-        date_confidence: DateConfidenceSchema.options.join(" | "),
-        event_type: EventTypeSchema.options.join(" | "),
-        title: "REPLACE_WITH_YOUR_OWN_HEADLINE_IN_YOUR_OWN_WORDS",
-        source_document: "REPLACE_WITH_EXACT_PDF_FILENAME_INCLUDING_THE_.pdf_SUFFIX",
-        in_scope: true,
-        notes: "optional free text; delete this key if unused",
-      },
-    ],
-  };
-  return JSON.stringify(template, null, 2) + "\n";
-}
-
-// ---------------------------------------------------------------------------
 // Source documents.
 // ---------------------------------------------------------------------------
-const SNIPPET_MARKER = /^\[\/?SNIPPET\b[^\]]*\]$/;
-
 interface CaseListing {
   draftsDir: string;
   draftNames: string[]; // reading order
   pdfNames: Set<string>;
-}
-
-interface PacketDoc {
-  order: number;
-  draftFile: string; // e.g. d1_pcp_2023_01.md
-  sourceDocument: string; // e.g. d1_pcp_2023_01.pdf — the value to write in labels
-  body: string; // marker-stripped
-  markersStripped: number;
-}
-
-/** Reading order is the `dN_` prefix, numerically. */
-function docOrder(filename: string): number {
-  const m = /^d(\d+)_/.exec(filename);
-  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
-}
-
-function stripSnippetMarkers(body: string): { body: string; stripped: number } {
-  const lines = body.split("\n");
-  const kept: string[] = [];
-  let stripped = 0;
-  for (const line of lines) {
-    if (SNIPPET_MARKER.test(line.trim())) {
-      stripped++;
-      continue;
-    }
-    kept.push(line);
-  }
-  return { body: kept.join("\n"), stripped };
 }
 
 function collectDocs(caseId: CaseId, listing: CaseListing): PacketDoc[] {
@@ -619,260 +378,50 @@ function collectDocs(caseId: CaseId, listing: CaseListing): PacketDoc[] {
 
   return draftNames.map((name, i) => {
     const raw = readAllowed(join(draftsDir, name), "packet-content");
-    const { body, stripped } = stripSnippetMarkers(raw);
+    const { body } = stripSnippetMarkers(raw);
     const pdfName = name.replace(/\.md$/, ".pdf");
     if (!pdfNames.has(pdfName)) {
       console.error(`${TAG} ${caseId}: draft "${name}" has no matching PDF "${pdfName}" in docs/`);
       process.exit(1);
     }
-    return {
-      order: i + 1,
-      draftFile: name,
-      sourceDocument: pdfName,
-      body,
-      markersStripped: stripped,
-    };
+
+    // Fail-closed residue check. `hasMarkerResidue` matches a WIDER pattern than
+    // the stripper does, which is the whole value of it: if the drafts' marker
+    // spelling ever drifts, the stripper silently becomes a no-op, and a check
+    // written against the stripper's own regex would drift with it and pass. The
+    // failure this guards is a packet that ships the answer key.
+    //
+    // It reports a path and a kind, never a count and never the offending text.
+    // A count of marker lines is the segmentation key (they are paired, one
+    // block per original event); printing it on the failure path would leak it
+    // to the same person who is about to read the packet, which is the exact
+    // defect Amendment 3 §1 records. The draft is on disk for whoever debugs it.
+    if (hasMarkerResidue(body)) {
+      console.error(`${TAG} REFUSED — ${caseId}/${name}: [SNIPPET] marker text survived stripping.`);
+      console.error(`${TAG} The marker spelling in the drafts has probably drifted from SNIPPET_MARKER`);
+      console.error(`${TAG} in lib/label-packet.ts. Nothing was written. Do NOT hand over this packet.`);
+      process.exit(1);
+    }
+
+    return { order: i + 1, draftFile: name, sourceDocument: pdfName, body };
   });
-}
-
-// ---------------------------------------------------------------------------
-// Packet README.
-// ---------------------------------------------------------------------------
-function packetReadme(caseId: CaseId, docs: PacketDoc[]): string {
-  const readingOrder = docs
-    .map(
-      (d) =>
-        `| ${d.order} | \`docs/${d.draftFile}\` | \`"${d.sourceDocument}"\` | \`data/cases/${caseId}/docs/${d.sourceDocument}\` |`,
-    )
-    .join("\n");
-
-  // Rendered from lib/label-leak-sources.ts rather than restated in prose, so
-  // the README, the handover banner and scripts/check-label-leaks.ts cannot
-  // disagree about what "forbidden" means. Only THIS case's data paths are
-  // listed; the other dev case is not part of this packet's sitting.
-  const forbidden = leakSources([caseId]);
-  const forbiddenRules = forbidden
-    .map((s, i) => `${i + 1}. \`${s.path}\` — ${s.why}`)
-    .join("\n");
-
-  return `# Blind labeling packet — ${caseId}
-
-Generated by \`scripts/make-label-packet.ts\` (issue #24). Working material —
-\`label_packet/\` is gitignored and is not a tracked artifact.
-
-## What you are doing
-
-You are writing ground-truth labels for ${caseId} **from scratch**, from the
-documents in \`docs/\` and nothing else. Your labels will later be scored against
-the model predictions that are already cached in this repo — predictions you
-must not look at. The delta between the original labels and yours is the
-measurement; if you see either the predictions or the original labels, there is
-no measurement left to take.
-
-## Rules of this sitting
-
-**This packet is blind. The repository around it is not.** The generator that
-wrote these files cannot read any of the paths below — they are off its
-allowlist, several are on its denylist, and no byte of any of them is in this
-packet. It cannot stop *you* opening them.
-
-Every path in rules 1–${forbidden.length} is forbidden for one reason: it carries, **verbatim**,
-the original ground-truth titles for these cases, the model's predicted titles,
-or the event count and segmentation those labels were written at. Title phrasing
-is the single quantity this experiment measures. There is no partial
-contamination — one line read is the measurement gone, and the only honest thing
-left to do would be to say so and abandon the sitting.
-
-**Do not open any of these, for any reason, including to check something
-unrelated.** They are ordered by how much damage each does.
-
-${forbiddenRules}
-${forbidden.length + 1}. One sitting, no splitting across days (protocol item 2 below).
-${forbidden.length + 2}. Write into \`blind_labels.json\` in this directory. When you are done:
-   \`npx tsx scripts/validate-blind-labels.ts ${caseId}\`.
-
-Also: do **not** run the extractor.
-
-**Where to get what those files would have given you.** The granularity spec is
-reproduced in **Part D** below, with the leaking passages removed — that is why
-\`prompts/\` is closed. The documents in this packet's \`docs/\` are the
-\`source_drafts/\` documents with the \`[SNIPPET]\` marker lines stripped, so you
-already have the text without the answer key; see "What was withheld", below.
-Everything you need from \`docs/EVAL.md\` §5 and §7 is inlined in Parts A and B.
-
-**This list is generated, not hand-maintained.** It comes from
-\`lib/label-leak-sources.ts\`, the same array that
-\`npx tsx scripts/check-label-leaks.ts\` enforces: that script greps every tracked
-file for verbatim original titles and **fails if it finds one outside this list**.
-It was written because the list was assembled by hand twice and each sweep missed
-files the next one found.
-
-That gate only sees **verbatim** titles. It cannot see paraphrase, and it cannot
-see count or granularity leaks. So the list above is still the paths that leak
-**today** — treat it as examples of a rule, not as the rule itself. The rule is:
-**does this file quote a title, a prediction, or an event count for one of these
-two cases?** If you cannot answer that without opening it, you do not get to open
-it — pause and ask. A paused sitting can be resumed; a contaminated one cannot be
-repaired, and cannot be detected afterwards either.
-
-## Reading order
-
-Read cover-to-cover, in this order, before labeling each one.
-
-| # | read this | write this as \`source_document\` | equivalent PDF |
-|---|-----------|----------------------------------|----------------|
-${readingOrder}
-
-The \`.md\` files here are the drafts the PDFs were exported from — same content,
-readable in an editor. Open the PDFs instead if you prefer; they are identical
-in substance.
-
-**Write \`source_document\` exactly as shown, with the \`.pdf\` suffix.** This is
-not cosmetic: the matcher's same-document tie-break compares that string, so a
-different spelling changes scoring for a reason that has nothing to do with your
-labels.
-
-## The record shape
-
-Each event in \`blind_labels.json\` is:
-
-The values below are deliberately synthetic placeholders, not an example event —
-a filled-in example would hand you a date, a type and a phrasing to anchor on.
-
-\`\`\`jsonc
-{
-  "id": "gt_001",             // unique within this file; gt_NNN convention
-  "date": "YYYY-MM-DD",       // ISO 8601, a real calendar date
-  "date_confidence": "…",     // one of: ${DateConfidenceSchema.options.join(" | ")}
-  "event_type": "…",          // one of: ${EventTypeSchema.options.join(" | ")}
-  "title": "…",               // your own words — see the corrections below
-  "source_document": "…",     // exactly as in the reading-order table above
-  "in_scope": true,           // false → excluded from the FN denominator
-  "notes": "…"                // optional; omit the key entirely if unused
-}
-\`\`\`
-
-Also fill in \`patient\`, \`labeled_at\` (ISO 8601, set at the END of the sitting)
-and \`labeler_notes\` at the top of the file. The validator refuses the file while
-any placeholder is still in place.
-
----
-
-## Part A — the protocol, as Case 3's labeler received it
-
-Quoted **verbatim** from \`docs/EVAL.md\` §5. Two of these instructions are
-wrong; they are reproduced unsoftened because reproducing the conditions Case
-3's labels were written under is the point of this experiment. Part B says which
-and why. Read Part B before you act on Part A.
-
-${PROTOCOL_BLOCKS.map((b) => b.text).join("\n\n")}
-
----
-
-## Part B — corrections
-
-${CORRECTIONS}
-
----
-
-## Part C — what is different for this relabeling
-
-Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
-"H11". Substitute:
-
-- "Case 3" → **${caseId}**. Case 3 is not involved here at all.
-- \`ground_truth.json\` → **\`blind_labels.json\`**, in this directory. Do not write
-  to \`data/cases/${caseId}/ground_truth.json\`; the original labels are the
-  baseline this experiment measures against and must not change.
-- "Do NOT run the model first" → the model has **already** run on these
-  documents; the predictions are cached in the repo. The instruction becomes:
-  do not open them. The \`data/cases/${caseId}/\` rule above covers them.
-- \`chmod 444\` / \`git hash-object\` / \`.gt_hash.lock\` → skip. Those lock a
-  held-out artifact. This packet is untracked working material.
-- "the system prompt" / "the schema above" → **Part D** and the record shape
-  above. Do not go to the prompt file itself; see the \`prompts/\` rule and Part D.
-
-### What was withheld from this packet, and why
-
-- **Any target event count.** §5's labeling checklist names one. It is withheld
-  here, and it is deliberately **not restated, paraphrased, or bounded anywhere
-  in this packet** — not even to tell you which side of it the truth falls on.
-  An expected count is an anchor: given one, you would label toward it, and the
-  count you produce is itself one of the things being compared against the
-  original labels. Label at the granularity the documents and the prompt spec
-  support, and let the count fall where it falls. If that leaves you unsure
-  whether you have "enough" events, that uncertainty is correct — keep it.
-- **\`[SNIPPET]\` marker lines** present in the original drafts. These are not a
-  subtle hint. There is **exactly one marked block per original ground-truth
-  event, in every document of both cases, with zero mismatches** — so the
-  markers are a complete answer key to the original labels *and* to the
-  granularity those labels were written at, laid directly over the document
-  text. (An earlier version of this packet described the markers as mapping 1-1
-  onto the *predictions'* citation anchors. That was measured and is false:
-  several marked blocks have no prediction snippet, and rather more prediction
-  snippets have no marked block. What the markers actually track is the
-  **original labels** — the more damaging of the two, which is why the wrong
-  description is worth correcting rather than dropping.) The \`docs/\` copies
-  here read exactly the way the PDF the model saw does — checked directly:
-  \`pdftotext\` extracts a clean text layer from every dev PDF and finds **zero**
-  marker lines in any of them. The snippet sentences themselves are untouched —
-  they are part of the document. **This is what the \`source_drafts/\` rule is
-  for:** stripping the markers from your copies achieves nothing if you go read
-  the originals.
-- **\`source_drafts/README.md\`**, which names a deliberate contradiction planted
-  between two of the documents.
-- **\`metadata.json\`**, which records how many events the model emitted.
-- **The whole of \`prompts/\`**, whose versioning notes quote original
-  ground-truth titles for these cases verbatim and whose Title section holds the
-  per-type title templates the model was tuned on. Part D carries the rules from
-  it, not the phrasing.
-
----
-
-## Part D — the event-granularity spec
-
-${granularitySection()}
-
-## Checklist before you hand off
-
-- [ ] Every \`source_document\` is one of the filenames in the reading-order table.
-- [ ] Every \`date\` is a real calendar date in \`YYYY-MM-DD\` form.
-- [ ] Every \`event_type\` is in the locked enum.
-- [ ] \`id\`s are unique.
-- [ ] \`patient\`, \`labeled_at\` and \`labeler_notes\` no longer hold placeholders.
-- [ ] The template stub object is deleted.
-- [ ] You used \`in_scope: false\` where two reasonable extractors would disagree.
-- [ ] \`npx tsx scripts/validate-blind-labels.ts ${caseId}\` exits 0.
-- [ ] You did not open the predictions or the original labels at any point.
-
-Only after all packets are labeled and validated:
-\`npx tsx scripts/compare-relabel.ts\`.
-`;
-}
-
-function packetDocFile(caseId: CaseId, doc: PacketDoc, total: number): string {
-  const header = [
-    `<!-- ${caseId} · document ${doc.order} of ${total}`,
-    `     source_document value to use in blind_labels.json: "${doc.sourceDocument}"`,
-    `     equivalent PDF: data/cases/${caseId}/docs/${doc.sourceDocument}`,
-    `     copied from data/cases/${caseId}/source_drafts/${doc.draftFile}`,
-    `     ${doc.markersStripped} [SNIPPET] marker line(s) removed; document text is otherwise verbatim -->`,
-    "",
-  ].join("\n");
-  return header + doc.body;
 }
 
 // ---------------------------------------------------------------------------
 // Clobber guard.
 // ---------------------------------------------------------------------------
-/** Refuses to overwrite anything but a pristine template. Byte-equality against
- * the template this run would write is the test: a labeling sitting that has
- * begun differs from it in at least one byte, and a pristine template is a
- * harmless no-op rewrite. There is no --force; move the file aside instead. */
-function assertNotClobbering(caseId: CaseId, labelsPath: string, template: string): void {
+/** Refuses to overwrite anything but a pristine template. A labeling sitting that
+ * has begun differs from the template in at least one byte; a pristine template
+ * is a harmless no-op rewrite. There is no --force; move the file aside instead.
+ *
+ * The test itself is `sittingState` in lib/label-packet.ts, shared with
+ * `scripts/check-label-leaks.ts`'s sitting guard. Two guards asking "has labeling
+ * started?" must not be able to answer it differently — see the note on that
+ * function. */
+function assertNotClobbering(caseId: CaseId, labelsPath: string): void {
   if (!existsSync(labelsPath)) return;
   const existing = readOwnPacketFile(labelsPath);
-  if (existing === template) {
+  if (sittingState(existing, caseId) === "pristine") {
     console.log(`${TAG} ${caseId}: existing blind_labels.json is a pristine template — safe to rewrite`);
     return;
   }
@@ -1010,7 +559,7 @@ function main(): void {
     const caseOut = join(outRoot, caseId);
     const labelsPath = join(caseOut, "blind_labels.json");
     const template = templateJson(caseId);
-    assertNotClobbering(caseId, labelsPath, template);
+    assertNotClobbering(caseId, labelsPath);
     return { caseId, caseOut, labelsPath, template, docs: collectDocs(caseId, listing) };
   });
 
@@ -1022,11 +571,14 @@ function main(): void {
       writePacket(join(caseOut, "docs", d.draftFile), packetDocFile(caseId, d, docs.length));
     }
 
-    const stripped = docs.reduce((a, d) => a + d.markersStripped, 0);
+    // Document count only. This line used to add the case's total stripped
+    // marker-line count, which halves straight into the case's original event
+    // total — printed to the terminal at the moment the packet is handed to the
+    // labeler. `docs.length` is a count of files the labeler is holding; it is
+    // not derived from the labels and stays.
     console.log("");
-    console.log(
-      `  ${caseId}: ${docs.length} document(s), ${stripped} [SNIPPET] marker line(s) stripped`,
-    );
+    console.log(`  ${caseId}: ${docs.length} document(s) written`);
+    console.log(`  ${" ".repeat(caseId.length)}  [SNIPPET] marker lines stripped; document text otherwise verbatim`);
   }
 
   // ---- IO ledger -----------------------------------------------------------

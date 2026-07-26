@@ -488,3 +488,311 @@ Amendment 1.
 now enforced: `scripts/check-label-leaks.ts` would fail if it did, because
 `docs/PREREG-24-blind-relabel.md` is not on the forbidden list and must never
 need to be. The worked example in §1 is stated in token counts for that reason.
+
+---
+---
+
+## Amendment 3 (2026-07-26)
+
+**Everything above this delimiter is unchanged.** The original pre-registration
+(sha256 `5628ef79…5416a`, 8464 bytes) is comment `5082307494`; Amendment 1 is
+comment `5082472776`; Amendment 2 is the comment after it. None has been edited.
+This is a fourth comment, later again. The repo copy is append-only:
+`git diff --numstat` on this file for this change shows **zero deletions**.
+
+**This amendment records a defect in the instrument, not a change to the
+experiment.** Three things are wrong above and are corrected here: the packet
+generator shipped the segmentation key that Amendment 2 §3 asserts it withholds;
+Amendment 2 §5's "upper bound" claim is stronger than the protocol supports; and
+the forbidden-file list contradicted the packet's own reading order, so the
+protocol did not in fact say what the labeler may read. The first invalidates a
+factual claim made in a posted amendment. The second is a reasoning error. The
+third was introduced by the instrument rather than by any posted text, and §7
+resolves it by restoring what the posted texts actually say. None of the three
+moves a prediction, an interval, a threshold or a decision band, and **no blind
+label exists yet**, which is the only reason this can be repaired rather than
+merely disclosed.
+
+### 1. The packet restated the anchor. Amendment 2 §3's claim was false when it was posted.
+
+Amendment 2 §3 rests on closing `source_drafts/` and `metadata.json` so that the
+blind in-scope count is **free to diverge** from the original. The `docs/CASES.md`
+row in §4's table calls the expected total *"the anchor the packet refuses to
+restate in any form."*
+
+**The packet restated it, per document, in exactly invertible form.**
+
+`scripts/make-label-packet.ts` emitted a provenance header on every packet
+document whose last line gave the number of `[SNIPPET]` marker lines removed
+from that document. The markers are **paired**, and §3 above states the decoding
+rule itself — one marked block per original ground-truth event, zero mismatches
+— so that number halved straight into the document's original event count. The
+same figure was printed again, summed per case, in the generator's closing
+summary at the moment the packet is handed over.
+
+Generating a packet from the pre-fix code and inverting it recovers **every one
+of the 13 dev documents' original event counts, with no errors**. The aggregate
+fell out of the terminal summary the same way.
+
+Three things make this worse than a stray number:
+
+- **It was in mandatory reading.** The `source_document` value the labeler must
+  copy into `blind_labels.json` sat four lines above the count, in the same
+  comment block. There is no path through the packet that avoids it.
+- **The packet promised the opposite, four paragraphs earlier.** Its "What was
+  withheld" section says the target count is *"not restated, paraphrased, or
+  bounded anywhere in this packet"* and tells the labeler to *"let the count fall
+  where it falls."*
+- **It falsified a posted pre-registration.** Amendment 2 §3 was true of the
+  generator's *reads* — the denylist does refuse `metadata.json` — and false of
+  its *writes*. Tooling blindness was checked; tooling output was not.
+
+**Fixed.** The count is gone from the per-document header and from the handover
+summary. The provenance claim that remains is categorical — markers were removed,
+the text is otherwise verbatim — and states no quantity.
+
+### 2. A second count channel, in the forbidden list itself
+
+The sweep for siblings found one, and it is not a decoding puzzle. Amendment 2 §4
+moved the forbidden list into `lib/label-leak-sources.ts` and quantified every
+entry's leak as **`N/21`**. `scripts/make-label-packet.ts` renders those strings
+verbatim as the packet README's numbered rule block and prints them again as the
+runtime `DO NOT OPEN` banner.
+
+**21 is the aggregate original in-scope ground-truth event count for the two
+cases being relabeled.** Rule 1 of the labeler's mandatory reading therefore
+stated the two-case total in plain words. The module's own doc comment gave the
+per-case split as well, and the packet README names that file to the labeler.
+
+Amendment 2 §4 introduced the quantification for a defensible reason — "Contains
+some titles" invites a labeler to decide an item looks harmless — and did not
+notice that a denominator is a number too. This is the same failure as §1 above,
+one level up: the *content* of the warning was audited and the *arithmetic* of it
+was not.
+
+**Fixed.** Every entry now ranks its leak categorically — COMPLETE ANSWER KEY >
+MOST > MANY > SEVERAL > A FEW — which preserves the deterrent ordering the
+packet renders and discloses no count. Nothing is lost for the maintainer:
+`scripts/check-label-leaks.ts` measures and prints the live count beside every
+entry on every run, and that copy cannot go stale. That script reads
+`ground_truth.json` to do it and prints per-file counts against the original
+labels, so it is answer-bearing by construction; the packet now says plainly that
+it must not be run during a sitting.
+
+**And the script now refuses to run during one**, which the packet's warning
+alone could not accomplish. It exits non-zero, before reading a single title, if
+any `label_packet/<case>/blind_labels.json` differs from the pristine generated
+template — using the same pristine test as the generator's clobber guard, in one
+shared function, because two implementations of "has labeling started?" are two
+things to drift and the drift would be silent. A written warning about a tool
+that has no opinion of its own is half a control, and the packet README names
+this script to the labeler in the course of telling them the list is enforced,
+which is exactly the path by which a reflexive mid-sitting run happens.
+`--sitting-over` reopens it for the legitimate run after
+`scripts/compare-relabel.ts`; that flag is an assertion by the operator rather
+than a fact the script can detect, and it says so rather than implying it
+checked.
+
+### 3. "Upper bound on the phrasing effect" is withdrawn
+
+Amendment 2 §5 says the F1 delta is **an upper bound on the phrasing effect**
+whenever the blind in-scope count diverges from 13 / 8. **That is too strong, for
+two reasons, and the second is the one that bites.**
+
+**(a) The granularity channel is not sign-definite.** An upper bound needs every
+non-phrasing contribution to push the drop *up*. Over-segmentation does: a blind
+count above 13 / 8 enlarges the FN denominator and recall falls. **But
+under-segmentation moves it the other way** — a labeler who merges events
+produces fewer in-scope GT events, and recall can *rise*. Amendment 2 §3
+conditions its caveat on the count "diverging from 13 / 8" and treats the two
+directions as equivalent. They are not.
+
+**(b) Residual contamination pushes the opposite way.** Limitation 1 above is
+byte-locked and governs: residual exposure makes the labeler reproduce the
+original phrasing, which *suppresses* the measured drop. So
+
+> measured Δ = phrasing + granularity(±) − contamination(+)
+
+That is not a bound on anything without a sign assumption on two separate
+channels, only one of which is observable.
+
+**The accurate statement, which replaces the one in Amendment 2 §5:** the
+aggregate F1 delta is confounded by a granularity channel whose sign the protocol
+does not determine. It is **neither an unbiased estimate of the phrasing effect
+nor a guaranteed bound on it.** It bounds the phrasing effect from above **only
+where the blind in-scope count exceeds 13 / 8**; where it falls below, the delta
+may **understate** the phrasing effect.
+
+`scripts/compare-relabel.ts` section [0] prints the in-scope counts for both
+label sets and section [4] reports the alignment residue rather than absorbing
+it. Read those two, **and the direction of the count difference**, before reading
+the F1 delta. The direction is now load-bearing, where Amendment 2 treated only
+the magnitude as load-bearing.
+
+### 4. The two defects interact, and the interaction is the reason this is blocking
+
+Amendment 2 §5's caveat is conditional: it fires only when the blind in-scope
+count diverges from 13 / 8. **A labeler holding the per-document counts anchors
+to 13 / 8. The count does not diverge. The caveat never triggers.**
+
+So the leak in §1 does not merely add error to the measurement. It **silently
+disables the safeguard that was registered to detect that error**, and it does so
+in the direction that makes the experiment look better behaved than it is — a
+blind count that lands on 13 / 8 would have read as reassuring convergence rather
+than as the artifact of an anchor. This is why the leak had to be closed before
+the sitting rather than disclosed alongside the result.
+
+### 5. Three corrections to figures stated above
+
+- **Amendment 2 §4 says "seven of the eight are in `title: "…"` form". It is
+  six of eight.** `lib/normalize.test.ts` carries its title inside a `normalize(…)`
+  call and again as an expected-value literal, not as a `title:` assignment —
+  so it joins `docs/CASES.md` as the second exception, not the first. The claim
+  is non-load-bearing (`scripts/check-label-leaks.ts` matches verbatim regardless
+  of form), which is exactly the argument for stating it correctly rather than
+  letting it stand.
+- **Amendment 2 §4's sweep counts were stale.** The live figures are **176
+  tracked files, 157 scanned, 19 skipped** under `held_out/` — not 173 / 154. The
+  invariants it drew from them are unaffected: **22 files carry at least one
+  verbatim original title, all 22 are on the forbidden list, and no ninth unnamed
+  file exists.**
+- **Some titles cannot diverge, and that caps the achievable effect.** One case2
+  referral document lists the earlier encounter it refers back to using the same
+  words the original label for that encounter uses, in its own body text. The
+  packet cannot strip it — it is the document, and the labeler is meant to read
+  it. Any labeler working from that document is likely to reuse those words. This
+  is a **floor on measurable phrasing divergence** and therefore a ceiling on the
+  measurable effect, and it is a property of the source material that no protocol
+  change can remove. It is registered here so that a smaller-than-predicted drop
+  is not read as evidence against the hypothesis without accounting for it.
+
+### 6. What this amendment does not change
+
+**No prediction, no threshold, no interval and no decision band is changed.** As
+originally registered and restated unchanged by Amendment 2: direction
+(macro-mean strict F1 decreases from **0.825**); point estimate **~0.60**,
+interval **0.50 – 0.70**; per-type ordering (`medication` most, `visit` least,
+`lab` intermediate), directional only per Limitation 2; `overlap` as the dominant
+loss mechanism; bands **< 0.60** / **0.60 – 0.75** / **> 0.75**, band governs over
+point estimate.
+
+What changes is **how the result may be described** (§3), **what the labeler
+holds when producing it** (§1, §2), and **what the labeler may read** (§7). The
+first two make the experiment harder on itself: §3 withdraws a claim that would
+have let a confounded number be reported as a bound, and §1–2 remove anchors that
+were pulling the blind count toward the original. §7 does neither — it restores
+the reading permissions the posted texts always granted, after an implementation
+detail had widened them into a rule that contradicted the packet's own reading
+order. No path any posted text ever closed is opened by it.
+
+One further change is to the instrument's verification rather than to the
+protocol. `npm test` runs `lib/*.test.ts` and nothing else, so **not one line of
+the packet generator was executed by any test** — it was verified by being run by
+hand and read over, twice, across two amendments, and the defect in §1 survived
+both. The rendering logic now lives in `lib/label-packet.ts` with an end-to-end
+test that generates a packet into a temporary root and asserts the emitted tree
+and the generator's own stdout carry no verbatim original title, no `[SNIPPET]`
+marker, and no recoverable per-document or aggregate event count. The test was
+confirmed to fail against each of the three defects it is meant to catch before
+being accepted. The same file now also covers the §7 rule shape — the packet must
+state the PDF carve-out positively and must contain no rule closing the directory
+its own reading-order table sends the labeler into — and the sitting guard
+described in §2, by running the real gate against a simulated in-progress sitting
+and asserting that it exits non-zero **and that no original title reached its
+output**.
+
+### 7. The rule inside `data/cases/<case>/` is narrowed, and the PDFs stay open
+
+The packet's generated rule block forbade `data/cases/<case>/` as a whole subtree
+while its own reading-order table pointed the labeler at
+`data/cases/<case>/docs/*.pdf` as the "equivalent PDF" — and Part A of the
+packet, which is §5's protocol quoted verbatim, instructs the labeler to open
+those PDFs in a PDF viewer and read each cover-to-cover. **A protocol that
+contradicts itself is resolved by the reader, in the convenient direction**, and
+the convenient direction here lands in the directory that also holds
+`ground_truth.json` and `events.json`. This changes what the labeler may read, so
+it is a protocol decision rather than something to settle inside a fix.
+
+**Where the subtree rule came from, since it matters to the resolution: not from
+any posted text.** The byte-locked original protocol names
+`data/cases/*/events.json` and `data/cases/*/ground_truth.json` **individually**.
+Amendment 1's table adds `data/cases/*/source_drafts/` and
+`data/cases/*/metadata.json`, also **individually**. No posted text has ever
+closed that directory as a whole. The blanket rule was introduced by §4 of
+Amendment 2 — the mechanization that moved the list into
+`lib/label-leak-sources.ts` — which coalesced those four separately named paths
+into one directory entry, and thereby widened the protocol while appearing only
+to restructure it. An earlier draft of this section attributed the subtree rule
+to Amendment 1's table; that attribution was wrong and is corrected here.
+
+**Decision: narrow the rule, and keep the PDF option.** Within
+`data/cases/<case>/`, `docs/*.pdf` is **permitted**, and `ground_truth.json`,
+`events.json`, `metadata.json` and `source_drafts/` are **forbidden, named
+individually**. Every path any posted text has ever closed stays closed, by name.
+
+Three reasons, in the order they carry weight:
+
+- **Comparability is the point of the experiment.** Case 3's labeler worked from
+  PDFs under the §5 protocol, and this packet reproduces that protocol verbatim
+  precisely so that the two labeling regimes differ in as little as possible.
+  Routing this sitting onto markdown instead would introduce a second difference
+  between them, in an experiment that exists to isolate one — phrasing.
+  Preserving the reading mode keeps the comparison closer to like-for-like.
+- **The PDFs are verified clean, and verified to add nothing.** `pdftotext`
+  extracts a clean text layer from all 13 dev PDFs (case1 7, case2 6) and finds
+  **zero `[SNIPPET]` markers** in any of them; the markers exist only in
+  `source_drafts/`, which stays forbidden. Re-verified for this amendment, and
+  extended to the question that actually governs: the extracted text of every
+  dev PDF was compared against the packet `.md` document the labeler already
+  holds for it. **Exactly one verbatim in-scope title occurs in either — the same
+  one, in the same case2 referral document — and nothing occurs in a PDF that is
+  not already in the labeler's own copy.** That occurrence is the irreducible one
+  registered in §5's third bullet above. Opening the PDFs therefore hands the
+  labeler nothing their packet does not already contain.
+- **Seeing a sibling filename is not reading it.** The leak is in opening
+  `ground_truth.json`, `events.json` or `metadata.json`, and each of those stays
+  forbidden by name. A directory listing is not an answer key.
+
+**What changed in the instrument.** `lib/label-leak-sources.ts` now names the
+four paths individually, so the packet README's rule block and the generator's
+runtime `DO NOT OPEN` banner — both rendered from that one array — moved with it.
+Both surfaces additionally state the carve-out **positively**: the PDFs are
+permitted reading. Deleting the subtree rule silently would have left the labeler
+inferring a permission from a gap in a list, which is the same defect in the
+other direction. The README's reading-order section says it again at the point
+where the question actually occurs to a labeler, and no longer describes the PDFs
+as merely an alternative "if you prefer".
+
+**One limit on that verification, stated so the gate is not over-trusted.**
+`scripts/check-label-leaks.ts` now treats an unlisted verbatim title inside
+`data/cases/<case>/docs/` as a failure rather than absorbing it under a subtree
+rule, which is a real improvement — but it is a backstop, not the check. It greps
+raw file bytes, and a PDF's text lives in a compressed stream: it is demonstrably
+blind to PDF text today, since the one dev PDF whose rendered text does carry an
+in-scope title raises no hit in it. What it would catch is a title left in an
+uncompressed stream. The premise this decision rests on is established by the
+`pdftotext` comparison above, not by the gate.
+
+### Status at the time of this amendment
+
+Registered **before any blind label exists**, exactly as the original and
+Amendments 1 and 2 were. `blind_labels.json` is still the pristine generated
+template for both cases, `scripts/compare-relabel.ts` has never been run, and
+this amendment — like the three texts above it — contains **zero results**. Every
+number in it is a count of files, markers or documents in the repository, a count
+of title occurrences in the source documents themselves (§5's third bullet and
+§7's second reason, neither of which reproduces the title it counts), or a figure
+restated unchanged from above.
+
+**The amendment window closes at the sitting, not at the merge.** Any further
+correction to this protocol is legitimate only while `blind_labels.json` remains
+a pristine template. Once the first label is written the instrument is frozen,
+and anything found after that is a limitation to be reported with the result, not
+an amendment.
+
+`lib/eval.ts` remains unmodified — sha256 `4540d12b…a09333`, 4900 bytes,
+re-verified at the time of writing and unchanged from registration, from
+Amendment 1 and from Amendment 2.
+
+**This document still quotes no ground-truth title.** §5's third bullet and §7's
+second reason both describe the same one without reproducing it, for that reason.

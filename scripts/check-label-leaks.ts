@@ -37,17 +37,46 @@
  *
  * NOT WIRED INTO CI, deliberately, and see the note at the bottom of this file.
  *
+ * ---------------------------------------------------------------------------
+ * THIS SCRIPT IS ANSWER-BEARING, AND THE PACKET NAMES IT TO THE LABELER.
+ *
+ * It reads `data/cases/<case>/ground_truth.json` and prints, per file, how many of
+ * the original titles that file carries. Run during a sitting, it hands the labeler a
+ * ranked map of exactly where the answers are — through a script the packet
+ * README names, while explaining that the list they are reading is enforced.
+ * Saying "do not run this" in the README and the handover banner is necessary and
+ * is not sufficient: the tool it warns about had no opinion of its own.
+ *
+ * So it now REFUSES to run while a sitting is live — while any
+ * `label_packet/<case>/blind_labels.json` differs from the pristine generated
+ * template. The pristine test is `sittingState` in lib/label-packet.ts, shared
+ * with the generator's clobber guard rather than reimplemented here, because two
+ * implementations of "has labeling started?" are two things to drift and the
+ * drift is silent.
+ *
+ * The guard runs FIRST, before a single ground-truth title is read.
+ *
+ * It is a guard, not a lock. `--sitting-over` opens it for the legitimate
+ * post-sitting run, and anyone determined to see the answers could open
+ * `MOCK_DATA.md` instead. What it removes is the ACCIDENT — the reflexive run of
+ * a script the packet just named — which is the failure mode that actually
+ * happens.
+ * ---------------------------------------------------------------------------
+ *
  * Usage:
  *   npx tsx scripts/check-label-leaks.ts
- *   npx tsx scripts/check-label-leaks.ts --verbose   # per-file line numbers
+ *   npx tsx scripts/check-label-leaks.ts --verbose        # per-file line numbers
+ *   npx tsx scripts/check-label-leaks.ts --packet=/tmp/p  # non-default packet root
+ *   npx tsx scripts/check-label-leaks.ts --sitting-over   # after compare-relabel.ts
  *
  * Exit codes:
  *   0 — every file carrying a verbatim original title is on the forbidden list
- *   1 — an UNLISTED file carries one (or the inputs could not be read)
+ *   1 — an UNLISTED file carries one, or a sitting is in progress, or the inputs
+ *       could not be read
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import {
   LABELED_CASES,
@@ -55,8 +84,14 @@ import {
   firstCovering,
   type LeakSource,
 } from "../lib/label-leak-sources";
+import { sittingState, asPacketCaseId, type SittingState } from "../lib/label-packet";
 
 const TAG = "[check-label-leaks]";
+
+/** Same default and same `--packet=` spelling as `scripts/validate-blind-labels.ts`
+ * and `scripts/compare-relabel.ts`, so the three scripts a sitting involves are
+ * pointed at a packet the same way. */
+const DEFAULT_PACKET_ROOT = "label_packet";
 
 /** Only the fields this script needs; the full shape is validated by
  * `scripts/validate-gt.ts` and `scripts/compare-relabel.ts`. */
@@ -91,6 +126,116 @@ function pad(s: string, n: number): string {
 
 function padL(s: string, n: number): string {
   return s.length >= n ? s : " ".repeat(n - s.length) + s;
+}
+
+/** Absolute path → the repo-relative, `/`-separated spelling an operator can
+ * paste back into a command. Same helper, same reason, as the generator's. */
+function repoRel(abs: string): string {
+  return relative(process.cwd(), abs).split(sep).join("/");
+}
+
+// ---------------------------------------------------------------------------
+// SITTING GUARD — runs before any answer is read. See the note at the top.
+// ---------------------------------------------------------------------------
+
+interface PacketLabels {
+  path: string; // repo-relative, for the operator to act on
+  state: SittingState;
+}
+
+/**
+ * Every `<packet root>/<dir>/blind_labels.json` on disk, classified.
+ *
+ * Scans the ACTUAL subdirectories rather than iterating {@link LABELED_CASES},
+ * so a packet under a directory name this repo does not recognise still counts.
+ * Such a file cannot be compared against any template, and `sittingState`
+ * reports it as in-progress: an unrecognised directory holding blind labels is
+ * the one state that cannot be cleared, so it is the last one to wave through.
+ * An unreadable file is treated the same way, for the same reason — the guard
+ * has no basis on which to call it pristine.
+ */
+function packetLabelFiles(packetRoot: string): PacketLabels[] {
+  if (!existsSync(packetRoot)) return [];
+
+  let names: string[];
+  try {
+    names = readdirSync(packetRoot, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+  } catch (err) {
+    die(`${repoRel(packetRoot)}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const out: PacketLabels[] = [];
+  for (const name of names) {
+    const abs = join(packetRoot, name, "blind_labels.json");
+    if (!existsSync(abs)) continue;
+    let contents: string;
+    try {
+      contents = readFileSync(abs, "utf8");
+    } catch {
+      out.push({ path: repoRel(abs), state: "in-progress" });
+      continue;
+    }
+    out.push({ path: repoRel(abs), state: sittingState(contents, asPacketCaseId(name)) });
+  }
+  return out;
+}
+
+/**
+ * Refuses the whole run while any packet holds edited labels.
+ *
+ * `--sitting-over` is an ASSERTION BY THE OPERATOR, not a detected fact.
+ * `scripts/compare-relabel.ts` writes no artifact, so there is nothing on disk
+ * for this script to check; and a flag whose name states its own precondition
+ * turns the post-sitting run into a deliberate act while leaving the reflexive
+ * mid-sitting one blocked. That is the same posture as the generator's clobber
+ * guard, which has no `--force` and tells you to move the file aside.
+ */
+function assertNoSittingInProgress(packetRoot: string, sittingOver: boolean): void {
+  const found = packetLabelFiles(packetRoot);
+  const live = found.filter((f) => f.state === "in-progress");
+  const root = repoRel(packetRoot);
+
+  if (live.length === 0) {
+    const detail =
+      found.length === 0
+        ? `no packet under ${root}/`
+        : `${found.length} packet(s) under ${root}/, every one a pristine template`;
+    console.log(`  sitting guard:   clear — ${detail}`);
+    return;
+  }
+
+  if (sittingOver) {
+    console.log(`  sitting guard:   OVERRIDDEN by --sitting-over — ${live.length} packet(s) hold edited labels:`);
+    for (const f of live) console.log(`                     ${f.path}`);
+    console.log("                   proceeding on your assertion that compare-relabel.ts has run.");
+    return;
+  }
+
+  console.error(rule("="));
+  console.error(`${TAG} REFUSED — a labeling sitting is in progress; nothing was read`);
+  console.error(rule("="));
+  for (const f of live) console.error(`  edited, not a pristine template:  ${f.path}`);
+  console.error("");
+  console.error("  This script reads the original ground-truth labels and prints, per file, how");
+  console.error("  many of the original titles that file carries. It is answer-bearing by");
+  console.error("  construction, and your packet README names it to you — so running it now would");
+  console.error("  hand you a ranked map of exactly where the answers are, through the very tool");
+  console.error("  that told you to stay away from them. One line read is the measurement gone.");
+  console.error("");
+  console.error("  Its two legitimate windows:");
+  console.error("    BEFORE the sitting — run it in the same breath as make-label-packet.ts,");
+  console.error("      which is where the protocol puts it.");
+  console.error("    AFTER scripts/compare-relabel.ts has run — contamination is no longer");
+  console.error("      preventable by then and this is a maintenance check again. Pass");
+  console.error("      --sitting-over to say so; this script cannot detect it for you.");
+  console.error("");
+  console.error("  If a file above is not a live sitting — a stale packet you meant to discard —");
+  console.error("  move it aside instead of reaching for the flag:");
+  console.error(`    mv ${live[0].path} ${live[0].path}.kept`);
+  process.exit(1);
 }
 
 /** The answers, read from the only files that legitimately hold them. */
@@ -169,16 +314,28 @@ function scan(titles: TitleRef[], files: string[], sources: LeakSource[]): {
 }
 
 function main(): void {
-  const verbose = process.argv.slice(2).includes("--verbose");
+  const raw = process.argv.slice(2);
+  const verbose = raw.includes("--verbose");
+  const sittingOver = raw.includes("--sitting-over");
+  const packetFlag = raw.find((a) => a.startsWith("--packet="));
+  const packetRoot = resolve(
+    process.cwd(),
+    packetFlag ? packetFlag.slice("--packet=".length) : DEFAULT_PACKET_ROOT,
+  );
+
+  console.log(rule("="));
+  console.log(`${TAG} verbatim ground-truth title sweep — issue #24, Cases 1+2`);
+  console.log(rule("="));
+
+  // FIRST, and before a single title is read: this script must not run during a
+  // sitting. Exits non-zero from inside if one is live.
+  assertNoSittingInProgress(packetRoot, sittingOver);
 
   const titles = loadTitles();
   const sources = leakSources();
   const files = trackedFiles();
   const { hits, scanned, skippedHeldOut, unreadable } = scan(titles, files, sources);
 
-  console.log(rule("="));
-  console.log(`${TAG} verbatim ground-truth title sweep — issue #24, Cases 1+2`);
-  console.log(rule("="));
   console.log(`  titles:          ${titles.length} in-scope, from data/cases/{${LABELED_CASES.join(",")}}/ground_truth.json`);
   console.log(`  tracked files:   ${files.length} (${scanned} scanned, ${skippedHeldOut} skipped under held_out/ — never opened)`);
   console.log(`  forbidden list:  ${sources.length} entries, lib/label-leak-sources.ts`);
@@ -262,6 +419,10 @@ main();
 //   - Every legitimate future change that adds a Cases-1+2 title to a new test
 //     fixture would break `main` until the list is updated, which is the kind of
 //     friction that gets a check deleted rather than fixed.
+//   - And since 2026-07-26 it refuses outright while a sitting is in progress.
+//     `label_packet/` is gitignored, so a CI checkout would never see one and the
+//     job would pass vacuously — a green check that proves nothing during the
+//     only window the gate is for.
 //
 // The honest place for it is a pre-sitting step in the protocol — run it in the
 // same breath as `make-label-packet.ts`, where a failure is exactly on point and
