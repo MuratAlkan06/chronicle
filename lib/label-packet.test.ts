@@ -12,10 +12,26 @@
  * docs/PREREG-24-blind-relabel.md).
  *
  * So the e2e test does not check that the generator ran. It generates a real
- * packet into a temp root and then tries to BREAK it, asserting the emitted tree
- * and the generator's own stdout carry (a) no verbatim original title, (b) no
- * `[SNIPPET]` marker, and (c) no recoverable per-document or aggregate event
- * count.
+ * packet into a temp root and then tries to BREAK it.
+ *
+ * WHAT IT ASSERTS CHANGED SHAPE ON 2026-07-26, and the change is the point.
+ * Rounds of this audit closed one observable at a time — a printed count, then a
+ * whitespace scar, then structural proxies, then byte-size rank order — and each
+ * fix was followed by another route through the same door. The door was that the
+ * packet shipped a marker-STRIPPED COPY of every source draft. A copy is a
+ * second ledger: `source_bytes − copy_bytes` is a fixed constant times that
+ * document's original event count, and the constant falls out of the deltas
+ * themselves. Every observable of a derived artifact carries that information,
+ * so no enumeration of observables could terminate.
+ *
+ * The copies are gone. The packet is a README and a blind-label template; the
+ * labeler reads `data/cases/<case>/docs/*.pdf` in place. So the count family of
+ * assertions is replaced by a STRUCTURAL one — **no artifact in the packet is
+ * derived from `source_drafts/` at all** — which is a property of the artifact
+ * set rather than a scan for the current spelling of a leak. The title, marker,
+ * pointer and section-citation audits are kept as they were, and the title one
+ * gets strictly stronger: with no document body in the packet, the number of
+ * verbatim original titles a packet may contain is zero.
  *
  * WHY THIS FILE READS ground_truth.json. It is the scorer, not packet input —
  * the same arrangement `scripts/check-label-leaks.ts` uses. A test that asserts
@@ -32,17 +48,13 @@ import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  SNIPPET_MARKER,
-  MARKER_RESIDUE,
-  stripSnippetMarkers,
-  hasMarkerResidue,
   docOrder,
-  packetDocFile,
   packetReadme,
   templateJson,
   sittingState,
   asPacketCaseId,
   granularitySection,
+  PACKET_ARTIFACTS,
   PROTOCOL_BLOCKS,
   PROMPT_BLOCKS,
   SITTING_RULE_LINES,
@@ -57,66 +69,17 @@ const CASES = ["case1", "case2"] as const;
 type CaseId = (typeof CASES)[number];
 
 // ---------------------------------------------------------------------------
-// stripSnippetMarkers — whole-line markers only, and nothing else touched.
+// PACKET_ARTIFACTS — the closed list of what a packet may contain.
+//
+// The expected set is written out HERE rather than imported and compared
+// against itself, so that adding a member to the constant fails this test
+// instead of moving it. That is the whole tripwire: the artifact this audit
+// removed — a marker-stripped copy of every case document — can only come back
+// through that array.
 // ---------------------------------------------------------------------------
 
-test("stripSnippetMarkers: removes both halves of a marked block, keeps the text", () => {
-  const src = ["Intro.", "", "[SNIPPET — DO NOT EDIT]", "HbA1c drawn today.", "[/SNIPPET]", "", "Outro."].join("\n");
-  const { body, stripped } = stripSnippetMarkers(src);
-  assert.equal(stripped, 2);
-  assert.equal(body, ["Intro.", "", "HbA1c drawn today.", "", "Outro."].join("\n"));
-});
-
-test("stripSnippetMarkers: leaves no positional scar where a marker line was", () => {
-  // The markers sit between blank lines in the real drafts. If stripping left the
-  // surrounding blanks adjacent, a run of two blank lines would mark every
-  // removal site and the count would be recoverable from the packet alone —
-  // which is route R4 of the packet inversion.
-  const src = ["A", "", "[SNIPPET — DO NOT EDIT]", "B", "[/SNIPPET]", "", "C"].join("\n");
-  const { body } = stripSnippetMarkers(src);
-  assert.doesNotMatch(body, /\n[ \t]*\n[ \t]*\n/, "double blank line marks where a marker was removed");
-});
-
-test("stripSnippetMarkers: does not touch the word SNIPPET inside prose", () => {
-  const src = "The snippet anchors a [SNIPPET] reference mid-sentence.";
-  const { body, stripped } = stripSnippetMarkers(src);
-  assert.equal(stripped, 0);
-  assert.equal(body, src);
-});
-
-test("stripSnippetMarkers: tolerates indentation around a marker line", () => {
-  const { stripped } = stripSnippetMarkers("  [SNIPPET — DO NOT EDIT]\ntext\n  [/SNIPPET]");
-  assert.equal(stripped, 2);
-});
-
-test("SNIPPET_MARKER: matches a whole marker line and nothing broader", () => {
-  assert.ok(SNIPPET_MARKER.test("[SNIPPET — DO NOT EDIT]"));
-  assert.ok(SNIPPET_MARKER.test("[/SNIPPET]"));
-  assert.ok(!SNIPPET_MARKER.test("text [SNIPPET] text"));
-});
-
-// ---------------------------------------------------------------------------
-// hasMarkerResidue — deliberately wider than the stripper.
-// ---------------------------------------------------------------------------
-
-test("hasMarkerResidue: catches marker spellings the stripper would miss", () => {
-  // This is the whole reason the residue check does not reuse SNIPPET_MARKER. If
-  // the drafts' marker spelling drifts, the stripper silently becomes a no-op;
-  // a check written against the stripper's own regex drifts with it and passes,
-  // and the packet ships the answer key.
-  for (const drifted of ["[SNIPPET-DO NOT EDIT]", "[ SNIPPET ]", "[/ SNIPPET ]", "prefix [SNIPPET] suffix", "DO NOT EDIT"]) {
-    assert.ok(hasMarkerResidue(drifted), `residue check missed ${JSON.stringify(drifted)}`);
-    assert.ok(MARKER_RESIDUE.test(drifted));
-  }
-});
-
-test("hasMarkerResidue: false on clean clinical text", () => {
-  assert.equal(hasMarkerResidue("Pt presents for routine annual physical.\nA1c 9.2%."), false);
-});
-
-test("hasMarkerResidue: a fully stripped document has no residue", () => {
-  const { body } = stripSnippetMarkers("[SNIPPET — DO NOT EDIT]\nx\n[/SNIPPET]");
-  assert.equal(hasMarkerResidue(body), false);
+test("PACKET_ARTIFACTS: a packet is a README and a blind-label template, and nothing else", () => {
+  assert.deepEqual([...PACKET_ARTIFACTS].sort(), ["README.md", "blind_labels.json"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -133,62 +96,40 @@ test("docOrder: an unprefixed name sorts last rather than to zero", () => {
 });
 
 // ---------------------------------------------------------------------------
-// packetDocFile — THE header that carried the leak.
-// ---------------------------------------------------------------------------
-
-const doc = (over: Partial<PacketDoc> = {}): PacketDoc => ({
-  order: 3,
-  draftFile: "d3_pcp_2023_05.md",
-  sourceDocument: "d3_pcp_2023_05.pdf",
-  body: "Body text.\n",
-  ...over,
-});
-
-test("packetDocFile: header carries the source_document value and the provenance", () => {
-  const out = packetDocFile("case1", doc(), 7);
-  assert.match(out, /source_document value to use in blind_labels\.json: "d3_pcp_2023_05\.pdf"/);
-  assert.match(out, /\[SNIPPET\] marker lines removed; document text is otherwise verbatim/);
-  assert.ok(out.endsWith("Body text.\n"));
-});
-
-test("packetDocFile: header states NO quantity of markers", () => {
-  // The regression. The header used to read "N [SNIPPET] marker line(s)
-  // removed"; markers are paired, so N/2 was this document's original event
-  // count, four lines under the value the labeler must copy.
-  const out = packetDocFile("case1", doc(), 7);
-  const header = /^<!--[\s\S]*?-->/.exec(out)?.[0] ?? "";
-  assert.doesNotMatch(header, /\d[^\n]{0,40}SNIPPET|SNIPPET[^\n]{0,40}\d/, "header pairs a number with SNIPPET");
-});
-
-test("packetDocFile: the ONLY integers in the header are the ordinal and the document total", () => {
-  // Attribution, not absence: both are counts of files the labeler is holding
-  // and can get from `ls`. Anything else in there is derived from something the
-  // labeler is not supposed to have. Lookarounds exclude digits inside the case
-  // name and the document filename.
-  const total = 7;
-  const out = packetDocFile("case2", doc({ order: 4 }), total);
-  const header = /^<!--[\s\S]*?-->/.exec(out)?.[0] ?? "";
-  const standalone = [...header.matchAll(/(?<![\w.\-/])(\d+)(?![\w.\-/])/g)].map((m) => Number(m[1]));
-  assert.deepEqual(
-    standalone.filter((n) => n !== 4 && n !== total),
-    [],
-    `header carries an integer that is neither the reading-order ordinal nor the document total: ${standalone}`,
-  );
-});
-
-// ---------------------------------------------------------------------------
 // packetReadme / templateJson / granularitySection
 // ---------------------------------------------------------------------------
 
 const readmeDocs: PacketDoc[] = [
-  doc({ order: 1, draftFile: "d1_a.md", sourceDocument: "d1_a.pdf" }),
-  doc({ order: 2, draftFile: "d2_b.md", sourceDocument: "d2_b.pdf" }),
+  { order: 1, sourceDocument: "d1_a.pdf" },
+  { order: 2, sourceDocument: "d2_b.pdf" },
 ];
 
-test("packetReadme: renders the reading order with the .pdf source_document spelling", () => {
+test("packetReadme: the reading order points at the PDFs, in place, by full path", () => {
+  // The reading-order table IS the manifest. It used to have a fourth column
+  // naming an "equivalent PDF" beside a packet-local `.md` copy; the copy was
+  // the derived artifact whose size leaked each document's event count, so the
+  // PDF is no longer the alternative — it is the document.
   const md = packetReadme("case1", readmeDocs);
-  assert.match(md, /\| 1 \| `docs\/d1_a\.md` \| `"d1_a\.pdf"` \|/);
+  assert.match(md, /\| 1 \| `data\/cases\/case1\/docs\/d1_a\.pdf` \| `"d1_a\.pdf"` \|/);
+  assert.match(md, /\| 2 \| `data\/cases\/case1\/docs\/d2_b\.pdf` \| `"d2_b\.pdf"` \|/);
   assert.match(md, /Write `source_document` exactly as shown, with the `\.pdf` suffix/);
+  assert.match(md, /Open each PDF in a PDF viewer/);
+});
+
+test("packetReadme: sends the labeler to no packet-local copy of any document", () => {
+  // The structural property, stated on the rendering rather than on the emitted
+  // tree, so it fails at unit speed. Every case document's filename carries a
+  // `dN_` reading-order stem, so a backticked `.md` path with that stem in it
+  // can only be a markdown copy of a document — the artifact this round removed.
+  // Written against the stem rather than against the literal `docs/` prefix so
+  // that relocating the copies would not slip past, and so that the repository's
+  // own `docs/EVAL.md` and friends are untouched by it.
+  for (const c of CASES) {
+    const md = packetReadme(c, readmeDocs);
+    assert.doesNotMatch(md, /`[^`]*d\d+_[^`]*\.md`/, "the README points at a markdown copy of a case document");
+    assert.doesNotMatch(md, /marker lines stripped|marker lines removed/, "the README describes a stripped copy");
+    assert.match(md, /This packet carries your instructions, not the documents\./);
+  }
 });
 
 test("packetReadme: renders the forbidden list from lib/label-leak-sources.ts", () => {
@@ -261,12 +202,12 @@ test("packetReadme: states the docs/*.pdf carve-out positively, beside the rules
   assert.match(md, /\*\*What is open — exhaustively:\*\*/);
   // "What you are doing" bounds the sitting's sources. It said "from the
   // documents in `docs/` and nothing else", which excluded the very PDFs the
-  // rest of the packet now tells the labeler to prefer — the original
-  // contradiction, relocated one section earlier. Fixing the rule block alone
-  // would have moved the defect rather than removed it.
+  // rest of the packet told the labeler to prefer — the original contradiction,
+  // relocated one section earlier. There is only one source now, so the bound
+  // and the carve-out name the same thing and cannot disagree.
   const scope = md.split("## Rules of this sitting")[0];
   assert.match(scope, /and nothing else/, "the sitting's sources must still be bounded");
-  assert.match(scope, /equivalent PDFs/, "the bound must admit the PDFs the packet permits");
+  assert.match(scope, /case\s+PDFs/, "the bound must name the PDFs as the documents");
   assert.ok(md.includes("data/cases/case1/ground_truth.json"), "the siblings must still be named one by one");
   assert.ok(md.includes("data/cases/case1/events.json"));
   assert.ok(md.includes("data/cases/case1/metadata.json"));
@@ -402,15 +343,14 @@ test("packetReadme: names no repository path except to close it, to run it, or b
   const md = packetReadme(caseId, readmeDocs);
   const sources = leakSources([caseId]);
 
-  /** Open: the packet itself, and the one carve-out. */
+  /** Open: the packet itself, and the one carve-out. The packet's own
+   * `docs/` subdirectory used to be in here; it no longer exists. */
   const open = new Set<string>([
     "label_packet/",
     "blind_labels.json",
-    "docs/", // the packet's own document directory
     `data/cases/${caseId}/`, // named only to say that nothing else in it is open
     `data/cases/${caseId}/docs/`,
     `data/cases/${caseId}/docs/*.pdf`,
-    ...readmeDocs.map((d) => `docs/${d.draftFile}`),
     ...readmeDocs.map((d) => `data/cases/${caseId}/docs/${d.sourceDocument}`),
   ]);
   /** Run, not read. The generator is named as the artifact's provenance stamp,
@@ -507,15 +447,16 @@ interface Emitted {
   text: string;
 }
 
-/** Everything the labeler holds, split into the two surfaces that matter:
- * generator-AUTHORED text (headers, README, template) and verbatim document
- * BODIES. A number in a body is a lab value or a date and is attributable to
- * nothing; a number in authored text came from the generator and has to be
- * accounted for. */
-const headerOf = (e: Emitted): string => (/^<!--[\s\S]*?-->/.exec(e.text)?.[0] ?? "");
-const bodyOf = (e: Emitted): string => e.text.replace(/^<!--[\s\S]*?-->\n/, "");
-const isDoc = (e: Emitted): boolean => e.rel.startsWith("docs/");
-const authoredOf = (e: Emitted): string => (isDoc(e) ? headerOf(e) : e.text);
+/** EVERY byte the labeler holds is now generator-authored, so this split has
+ * collapsed and the scans below apply to whole files.
+ *
+ * There used to be two surfaces: authored text (document headers, README,
+ * template) and verbatim document BODIES, with the count scans applied only to
+ * the first because a number in a body is a lab value and is attributable to
+ * nothing. That carve-out is what a derived copy costs — it exempts most of the
+ * packet from the audit and then leaks through the exempt part's SIZE. With the
+ * copies gone there is no exempt part. */
+const authoredOf = (e: Emitted): string => e.text;
 
 /** Markdown ordinals, section references and correspondence notation are not
  * quantities. The packet is full of them — the forbidden-list rules are a
@@ -540,40 +481,33 @@ function standaloneIntegers(s: string): number[] {
 }
 
 /**
- * Generator stdout with the IO-ledger lines removed, so the count scan sees
+ * Generator stdout with the WRITE-ledger rows removed, so the count scan sees
  * prose and not file bookkeeping.
  *
- * The per-file ledger rows carry byte sizes and sha256 prefixes; the ledger
- * SUMMARY line counts file reads. Every integer on those lines is a count of
- * files or bytes by construction. The summary is excluded for a specific
- * measured reason: it collides with the cross-case event total in exactly one of
- * four run configurations, and the collision is arithmetic rather than causal —
+ * Those rows carry a byte size and a sha256 prefix per written file. Both
+ * measure an artifact the labeler holds and can measure for themselves, and a
+ * hex prefix parses as an integer often enough to make the scan useless.
  *
- *   reads = 2 fidelity + 2·|cases| listings + |drafts| + |clobber-guard reads|
- *   both cases, fresh   2+4+13+0 = 19      both cases, re-run  2+4+13+2 = 21
- *   case1 only, fresh   2+2+ 7+0 = 11      case2 only, fresh   2+2+ 6+0 = 10
- *
- * against event totals of 13 (case1), 8 (case2), 21 (both). A quantity that
- * tracked the labels would print 13 for case1-only and 8 for case2-only; it
- * prints 11 and 10. Without this exclusion the re-run configuration could not be
- * covered at all, which would leave the clobber-guard path untested. Every other
- * stdout line is still scanned, including the per-case summary — that is where
- * the aggregate marker count used to be printed.
+ * TWO EXCLUSIONS WERE DROPPED HERE ON 2026-07-26, which is a strengthening.
+ * The read-ledger summary used to be excluded because it collided with the
+ * cross-case event total in one run configuration: the old read count scaled
+ * with the number of DOCUMENTS, since every draft was opened and copied. It no
+ * longer does — the generator opens no document, so the count is two fidelity
+ * checks, one directory listing per case, and one clobber-guard read per
+ * existing packet. It cannot reach an event total for arithmetic reasons rather
+ * than by luck, so the summary lines are now scanned like everything else.
  */
 function scannableStdout(s: string): string {
   return s
     .split("\n")
-    .filter(
-      (l) =>
-        !/^\s+\d+B\s+[0-9a-f]{12}\s/.test(l) &&
-        !/^\s+(packet-content|listing|fidelity-check|clobber-guard)\s/.test(l) &&
-        !/\d+ read\(s\) total by this script/.test(l) &&
-        !/a syscall-level trace of this run will count a few more than \d+/.test(l),
-    )
+    .filter((l) => !/^\s+\d+B\s+[0-9a-f]{12}\s/.test(l))
     .join("\n");
 }
 
-const dataPresent = CASES.every((c) => existsSync(join(REPO_ROOT, "data", "cases", c, "source_drafts")));
+/** The drafts are never read BY THE PACKET; this file reads them only to prove
+ * that nothing in the packet came from them. */
+const draftsDirFor = (c: CaseId): string => join(REPO_ROOT, "data", "cases", c, "source_drafts");
+const dataPresent = CASES.every((c) => existsSync(draftsDirFor(c)));
 
 test("end-to-end: the generated packet leaks no title, no marker and no event count", { skip: !dataPresent ? "data/cases/* not present in this checkout" : false }, () => {
   const outRoot = mkdtempSync(join(tmpdir(), "label-packet-e2e-"));
@@ -614,18 +548,15 @@ test("end-to-end: the generated packet leaks no title, no marker and no event co
       };
       walk(caseDir, "");
     }
-    const docsOut = emitted.filter(isDoc);
-    assert.ok(docsOut.length > 0, "packet contains no documents");
+    assert.ok(emitted.length > 0, "generator wrote nothing");
 
     // ---- the answer sheet, read only to score -----------------------------
-    const perDoc = new Map<string, number>(); // `${case}/${pdf}` -> event count
     const caseTotal = new Map<CaseId, number>();
     const titles = new Map<CaseId, string[]>();
     for (const c of CASES) {
       const gt: { events: Array<{ source_document: string; title: string }> } = JSON.parse(
         readFileSync(join(REPO_ROOT, "data", "cases", c, "ground_truth.json"), "utf8"),
       );
-      for (const e of gt.events) perDoc.set(`${c}/${e.source_document}`, (perDoc.get(`${c}/${e.source_document}`) ?? 0) + 1);
       caseTotal.set(c, gt.events.length);
       titles.set(c, gt.events.map((e) => e.title).filter((t) => t.length >= 6));
     }
@@ -646,47 +577,89 @@ test("end-to-end: the generated packet leaks no title, no marker and no event co
     answers.set(bothCases, "the original event total across BOTH cases");
     answers.set(bothCases * 2, "the marker-line total across both cases, which halves to their event total");
 
-    // ---- (a) no verbatim original ground-truth title ----------------------
+    // ---- (a) NO verbatim original ground-truth title, anywhere ------------
+    // Strictly stronger than it used to be. While the packet shipped document
+    // copies this assertion had to carve out document BODIES, because one dev
+    // document genuinely contains a title the original labeler reused verbatim
+    // — case2's referral letter, which names the enclosed documents. (Not quoted
+    // here. This file is on the forbidden list under `lib/*.test.ts`, but a
+    // check that has to hold an answer as a literal in order to run is a check
+    // that creates the thing it audits, and it does not have to: the titles are
+    // loaded from ground_truth.json at runtime.) The carve-out was correct and
+    // it was also the hole: most of the packet's bytes sat outside the audit.
+    // With no body in the packet the exemption is gone and the permitted count
+    // is zero. That one occurrence is still there — in the PDF, which is the
+    // document itself, and which the labeler is supposed to read.
     for (const e of emitted) {
       for (const t of titles.get(e.case)!) {
         assert.ok(
           !authoredOf(e).includes(t),
-          `${e.case}/${e.rel}: generator-authored packet text reproduces an original ground-truth title verbatim`,
+          `${e.case}/${e.rel}: the packet reproduces an original ground-truth title verbatim`,
         );
       }
     }
-    // A title may survive in a document BODY only because the document itself
-    // says it — data/cases/case2/source_drafts/d3_referral_2024_03.md carries
-    // "OB/GYN annual visit" in its list of enclosed documents. That is
-    // irreducible: the labeler is meant to read the document. It is asserted
-    // rather than ignored, so that a title appearing in a body the SOURCE DRAFT
-    // does not contain would fail here.
-    for (const e of docsOut) {
-      for (const t of titles.get(e.case)!) {
-        if (!bodyOf(e).includes(t)) continue;
-        const src = readFileSync(join(REPO_ROOT, "data", "cases", e.case, "source_drafts", e.rel.replace(/^docs\//, "")), "utf8");
-        assert.ok(src.includes(t), `${e.case}/${e.rel}: a title appears in the body that the source draft does not contain`);
+
+    // ---- (b) NOTHING IN THE PACKET IS DERIVED FROM source_drafts/ ----------
+    // This replaces the whole family of observable-by-observable count checks —
+    // the per-document header scan, the whitespace-scar scan and the byte-size
+    // rank-order scan. Each of those closed one way of reading a quantity off a
+    // derived artifact, and the next audit found another, because ANY observable
+    // of a derived artifact correlates with what was removed to make it. The
+    // property that terminates the regress is that there is no derived artifact.
+    //
+    // Asserted three ways, because "derived" has three failure modes: an extra
+    // file, a document's content, and a document's identity.
+    for (const c of CASES) {
+      // (b1) The artifact SET is closed. A copy would be a file.
+      const rels = emitted.filter((e) => e.case === c).map((e) => e.rel).sort();
+      assert.deepEqual(
+        rels,
+        ["README.md", "blind_labels.json"],
+        `${c}: the packet contains a file that is neither the README nor the label template`,
+      );
+      assert.ok(!existsSync(join(outRoot, c, "docs")), `${c}: the packet has a docs/ directory again`);
+
+      // (b2) No CONTENT of any draft appears in any artifact. A substantive line
+      // of a clinical document has no business in a README, so a single hit is
+      // either a copy, an excerpt or a quoted example — all of them derived.
+      const draftLines = new Set<string>();
+      for (const n of readdirSync(draftsDirFor(c))) {
+        if (!/^d\d+_.*\.md$/.test(n)) continue;
+        for (const line of readFileSync(join(draftsDirFor(c), n), "utf8").split("\n")) {
+          const t = line.trim();
+          if (t.length >= 25 && /[A-Za-z]/.test(t)) draftLines.add(t);
+        }
+      }
+      assert.ok(draftLines.size > 0, `${c}: no draft lines to check against — the check would be vacuous`);
+      for (const e of emitted.filter((x) => x.case === c)) {
+        for (const line of e.text.split("\n")) {
+          const t = line.trim();
+          assert.ok(
+            !(t.length >= 25 && draftLines.has(t)),
+            `${c}/${e.rel}: carries a line that came from a source draft: ${JSON.stringify(t.slice(0, 80))}`,
+          );
+        }
+      }
+
+      // (b3) No artifact is NAMED after a document, so there is no per-document
+      // artifact to set against a per-document draft in the first place. Without
+      // a pairing there is no differential to compute, whatever the observable.
+      for (const e of emitted.filter((x) => x.case === c)) {
+        assert.doesNotMatch(e.rel, /d\d+_/, `${e.case}/${e.rel}: an artifact is named after a case document`);
       }
     }
 
-    // ---- (b) no [SNIPPET] marker anywhere in a document -------------------
-    for (const e of docsOut) {
-      assert.equal(hasMarkerResidue(bodyOf(e)), false, `${e.case}/${e.rel}: marker vocabulary survived into the document body`);
-      for (const line of bodyOf(e).split("\n")) {
-        assert.equal(SNIPPET_MARKER.test(line.trim()), false, `${e.case}/${e.rel}: a marker line survived stripping`);
-      }
+    // The generator must not have OPENED a draft either — its read ledger is
+    // printed in full, so this is checkable from stdout rather than inferred.
+    for (const [what, text] of [
+      ["generator stdout", stdout],
+      ["generator stdout (re-run)", rerunStdout],
+    ] as const) {
+      assert.ok(!text.includes("source_drafts/d"), `${what}: the generator read a source draft`);
+      assert.ok(!/^\s+packet-content\s/m.test(text), `${what}: a read was ledgered as packet content`);
     }
 
     // ---- (c) no recoverable per-document or aggregate event count ---------
-    // (c1) per-document header: only the ordinal and the document total.
-    for (const e of docsOut) {
-      const total = docsOut.filter((d) => d.case === e.case).length;
-      const ordinal = Number(/document (\d+) of/.exec(headerOf(e))?.[1] ?? NaN);
-      assert.ok(Number.isFinite(ordinal), `${e.case}/${e.rel}: header has no reading-order ordinal`);
-      const leftovers = standaloneIntegers(headerOf(e)).filter((n) => n !== ordinal && n !== total);
-      assert.deepEqual(leftovers, [], `${e.case}/${e.rel}: header carries integer(s) ${leftovers} beyond the ordinal and the document total`);
-    }
-
     // (c2) no authored integer is an answer, in any packet file or in stdout.
     const surfaces: Array<{ what: string; text: string }> = [
       ...emitted.map((e) => ({ what: `${e.case}/${e.rel}`, text: authoredOf(e) })),
@@ -731,26 +704,45 @@ test("end-to-end: the generated packet leaks no title, no marker and no event co
       }
     }
 
-    // (c4) no positional residue marking where marker lines were removed.
-    for (const e of docsOut) {
-      const lines = bodyOf(e).split("\n");
-      assert.doesNotMatch(bodyOf(e), /\n[ \t]*\n[ \t]*\n/, `${e.case}/${e.rel}: a run of blank lines marks a removal site`);
-      assert.equal(
-        lines.filter((l) => l.trim() !== "" && l !== l.trimEnd()).length,
-        0,
-        `${e.case}/${e.rel}: trailing whitespace marks a removal site`,
-      );
-    }
+    // (c4) and (c5) are GONE, and their absence is the result of this round
+    // rather than an omission. (c4) checked that stripping left no whitespace
+    // scar; (c5) checked that document byte sizes did not rank-order the
+    // documents by event count. Both were checks ON A DERIVED ARTIFACT, and both
+    // were reached around: the differential that closed them out is
+    // `source_bytes − copy_bytes`, which is exactly divisible by the marker
+    // pair's constant size and needs neither the whitespace nor the ranking.
+    // There is no derived artifact left for either to inspect, and (b) above
+    // asserts that rather than asserting a property of one.
+  } finally {
+    rmSync(outRoot, { recursive: true, force: true });
+  }
+});
 
-    // (c5) document byte size must not rank-order the documents by event count.
-    for (const c of CASES) {
-      const cd = docsOut.filter((d) => d.case === c);
-      if (cd.length < 3) continue;
-      const key = (e: Emitted): number => perDoc.get(`${c}/${e.rel.replace(/^docs\//, "").replace(/\.md$/, ".pdf")}`) ?? 0;
-      const bySize = [...cd].sort((a, b) => a.text.length - b.text.length).map((e) => e.rel);
-      const byCount = [...cd].sort((a, b) => key(a) - key(b)).map((e) => e.rel);
-      assert.notDeepEqual(bySize, byCount, `${c}: document size rank order reproduces the event-count rank order`);
-    }
+test("end-to-end: the generator refuses to write into a packet holding artifacts it does not produce", { skip: !dataPresent ? "data/cases/* not present in this checkout" : false }, () => {
+  // The upgrade path, which is where this round's change could still ship the
+  // artifact it removes. Packets generated before 2026-07-26 carry a `docs/`
+  // subdirectory of marker-stripped document copies. Regenerating in place
+  // rewrites the README and the template and would leave every one of those
+  // copies sitting beside them — with the new README stating that no such file
+  // exists, which is worse than either shape on its own.
+  const outRoot = mkdtempSync(join(tmpdir(), "label-packet-stale-"));
+  try {
+    mkdirSync(join(outRoot, "case1", "docs"), { recursive: true });
+    writeFileSync(join(outRoot, "case1", "docs", "d1_x.md"), "a stale marker-stripped copy\n", "utf8");
+    writeFileSync(join(outRoot, "case1", "blind_labels.json"), templateJson("case1"), "utf8");
+
+    const r = spawnSync(
+      join(REPO_ROOT, "node_modules", ".bin", "tsx"),
+      [join(REPO_ROOT, "scripts", "make-label-packet.ts"), "case1", `--out=${outRoot}`],
+      { cwd: REPO_ROOT, encoding: "utf8", timeout: 120_000 },
+    );
+    assert.equal(r.status, 1, `generator regenerated over a stale document copy\n${r.stdout}`);
+    assert.match(r.stderr, /holds \d+ entr\(ies\) this generator does not write/);
+    assert.match(r.stderr, /docs/);
+    // Refuses rather than deletes: the packet directory is open to the labeler,
+    // so anything unexpected in it might be theirs.
+    assert.ok(existsSync(join(outRoot, "case1", "docs", "d1_x.md")), "the guard deleted a file it did not write");
+    assert.ok(!existsSync(join(outRoot, "case1", "README.md")), "the guard let a partial packet be written");
   } finally {
     rmSync(outRoot, { recursive: true, force: true });
   }
@@ -826,7 +818,7 @@ test("check-label-leaks: refuses while a sitting is in progress, without reading
     for (const t of originalTitles()) {
       assert.ok(!printed.includes(t), "a refused run printed an original ground-truth title");
     }
-    assert.ok(!/hits\s+file/.test(r.stdout), "a refused run printed the per-file hit table");
+    assert.ok(!/carries\s+file/.test(r.stdout), "a refused run printed the per-file hit table");
     assert.ok(!/\d+\/\d+\s+\S/.test(r.stdout), "a refused run printed per-file title counts");
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -858,6 +850,30 @@ test("check-label-leaks: still runs before the sitting, which is where the proto
     assert.equal(r.status, 0, `gate refused a pristine packet\n${r.stderr}`);
     assert.match(r.stdout, /sitting guard:\s+clear/);
     assert.match(r.stdout, /PASS — the forbidden list is a superset of the hit set/);
+
+    // A PASSING run is the one that actually prints the hit table, and the table
+    // used to rank every file as `N/M` where M is the aggregate original event
+    // count for the two cases being relabeled. The gate that measures the anchor
+    // was the last thing printing it. Ranked categorically now — asserted on the
+    // shape rather than on any literal, so it holds if the cases change.
+    assert.match(r.stdout, /carries\s+file/, "the hit table must still rank its entries");
+    assert.match(r.stdout, /\b(COMPLETE|MOST|MANY|SEVERAL|A FEW)\b\s+\S/, "the ranking must be categorical");
+    for (const line of r.stdout.split("\n")) {
+      assert.doesNotMatch(
+        line,
+        /(?<![\w.])\d+\s*\/\s*\d+(?![\w.])/,
+        `the gate prints a ratio, whose denominator is the aggregate event count: ${JSON.stringify(line)}`,
+      );
+    }
+    const gtTotal = CASES.reduce((n, c) => {
+      const gt: { events: Array<{ in_scope: boolean }> } = JSON.parse(
+        readFileSync(join(REPO_ROOT, "data", "cases", c, "ground_truth.json"), "utf8"),
+      );
+      return n + gt.events.filter((e) => e.in_scope).length;
+    }, 0);
+    for (const n of [...r.stdout.matchAll(/(?<![\w.\-/])(\d+)(?![\w.\-/])/g)].map((m) => Number(m[1]))) {
+      assert.notEqual(n, gtTotal, `the gate prints ${n}, the aggregate in-scope original event count`);
+    }
 
     const none = runGate(join(root, "not-generated-yet"));
     assert.equal(none.status, 0, `gate refused with no packet present\n${none.stderr}`);

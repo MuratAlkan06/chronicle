@@ -2,7 +2,7 @@
  * scripts/check-label-leaks.ts — mechanical sweep for original ground-truth
  * titles leaking into tracked files (issue #24).
  *
- * THE GATE THAT REPLACES A MANUAL SWEEP. Reads the 21 original Cases 1+2
+ * THE GATE THAT REPLACES A MANUAL SWEEP. Reads the original in-scope Cases 1+2
  * ground-truth titles, greps every tracked file for verbatim occurrences, and
  * exits NON-ZERO if any hit falls outside the forbidden list in
  * `lib/label-leak-sources.ts`. Passing means the forbidden list is a SUPERSET of
@@ -11,13 +11,21 @@
  *
  * WHY IT EXISTS. The forbidden list was assembled by hand twice. The original
  * protocol (docs/PREREG-24-blind-relabel.md) named `prompts/system_extract_v4.md`
- * at 4/21 and missed `prompts/few_shot.md` at 9/21 — it missed a bigger leak
- * than the one it named. Amendment 1 fixed that, generalized the rule to the
- * whole `prompts/` directory, and then made the identical mistake one level
- * down: it missed eight more tracked files, including `app/page.tsx` (3/21, the
- * app's main page) and `docs/CASES.md` (2/21 plus a per-document event-count and
- * type breakdown). Two hand sweeps, two sets of misses. Amendment 2 records the
+ * and missed `prompts/few_shot.md`, which carries MORE of the answer key than
+ * the file it named. Amendment 1 fixed that, generalized the rule to the whole
+ * `prompts/` directory, and then made the identical mistake one level down: it
+ * missed eight more tracked files, including `app/page.tsx` (the app's main
+ * page) and `docs/CASES.md` (titles plus a per-document event-count and type
+ * breakdown). Two hand sweeps, two sets of misses. Amendment 2 records the
  * pattern and this script is the fix: the sweep is now something a machine does.
+ *
+ * ITS OWN OUTPUT IS CATEGORICAL, for the reason `lib/label-leak-sources.ts`
+ * records about the `why` strings it prints beside: this script used to rank
+ * every hit as `N/M`, and the denominator M IS the aggregate in-scope original
+ * event count for the two cases being relabeled. A gate that discloses the
+ * anchor while reporting on disclosure is the same defect one level out. It
+ * ranks with the list's own vocabulary instead — COMPLETE > MOST > MANY >
+ * SEVERAL > A FEW — which is what the ordering was for.
  *
  * WHAT IT CANNOT DO. It matches titles VERBATIM. It does not and cannot detect:
  *   - paraphrase, partial quotation, or a title reformatted across lines;
@@ -126,6 +134,30 @@ function pad(s: string, n: number): string {
 
 function padL(s: string, n: number): string {
   return s.length >= n ? s : " ".repeat(n - s.length) + s;
+}
+
+/**
+ * How much of the answer key a file carries, as a WORD.
+ *
+ * The same five-band vocabulary `lib/label-leak-sources.ts` uses for its `why`
+ * strings, and for the same reason: a printed `N/M` discloses both a per-file
+ * title count and, in M, the aggregate original event count for the two cases
+ * being relabeled — the single anchor the packet is built to withhold. This
+ * script is the one that MEASURES that anchor, so it is the last place that
+ * should print it.
+ *
+ * Nothing is lost. The ranking is what the number was for: the table is sorted
+ * by the underlying count and the band tells a maintainer whether an entry is
+ * the top of the list or the bottom of it. Anyone who needs the exact figure is
+ * reading `ground_truth.json`, which is where it belongs.
+ */
+function severityBand(hitCount: number, totalTitles: number): string {
+  const f = totalTitles > 0 ? hitCount / totalTitles : 0;
+  if (f >= 1) return "COMPLETE";
+  if (f >= 0.5) return "MOST";
+  if (f >= 0.25) return "MANY";
+  if (f >= 0.1) return "SEVERAL";
+  return "A FEW";
 }
 
 /** Absolute path → the repo-relative, `/`-separated spelling an operator can
@@ -336,7 +368,9 @@ function main(): void {
   const files = trackedFiles();
   const { hits, scanned, skippedHeldOut, unreadable } = scan(titles, files, sources);
 
-  console.log(`  titles:          ${titles.length} in-scope, from data/cases/{${LABELED_CASES.join(",")}}/ground_truth.json`);
+  // The COUNT of titles is deliberately not printed: it is the aggregate
+  // in-scope original event count for the two cases being relabeled.
+  console.log(`  titles:          the in-scope originals, from data/cases/{${LABELED_CASES.join(",")}}/ground_truth.json`);
   console.log(`  tracked files:   ${files.length} (${scanned} scanned, ${skippedHeldOut} skipped under held_out/ — never opened)`);
   console.log(`  forbidden list:  ${sources.length} entries, lib/label-leak-sources.ts`);
   if (unreadable.length > 0) {
@@ -349,11 +383,18 @@ function main(): void {
   console.log(rule("="));
   console.log(`${TAG} FILES CARRYING A VERBATIM ORIGINAL TITLE (${hits.length})`);
   console.log(rule("="));
-  console.log(`  ${pad("hits", 7)}${pad("file", 60)}covered by forbidden-list entry`);
+  console.log(`  ${pad("carries", 9)}${pad("file", 60)}covered by forbidden-list entry`);
   for (const h of [...hits].sort((a, b) => b.titles.length - a.titles.length || a.path.localeCompare(b.path))) {
     const cover = h.covering ? h.covering.path : "*** NOT ON THE LIST ***";
-    console.log(`  ${padL(`${h.titles.length}/${titles.length}`, 7)}${pad(` ${h.path} `, 60)}${cover}`);
-    if (verbose) console.log(`         lines: ${h.lines.join(", ")}`);
+    console.log(`  ${padL(severityBand(h.titles.length, titles.length), 9)}${pad(` ${h.path} `, 60)}${cover}`);
+    // --verbose prints POSITIONS, which is what a maintainer chasing an unlisted
+    // hit needs. Stated rather than glossed: the LENGTH of that list is a lower
+    // bound on how many titles the file carries, so --verbose is weaker than the
+    // categorical default. It is opt-in, it is not the default output, the
+    // sitting guard above refuses the whole run while labeling is live, and the
+    // packet does not name this script to the labeler. Do not remove any of
+    // those three and leave this flag as it is.
+    if (verbose) console.log(`           lines: ${h.lines.join(", ")}`);
   }
 
   // Entries with zero title hits are NOT stale. Most of them are forbidden for
@@ -385,7 +426,12 @@ function main(): void {
   console.error(`${TAG} and are NOT on the forbidden list`);
   console.error(rule("="));
   for (const h of unlisted) {
-    console.error(`  ${h.path} — ${h.titles.length}/${titles.length} title(s), line(s) ${h.lines.join(", ")}`);
+    // Categorical here too. This is the FAILURE path, so an operator is present
+    // and about to act — but a failing run is also the one most likely to be
+    // pasted into an issue, and the ratio would carry the anchor with it.
+    console.error(
+      `  ${h.path} — carries ${severityBand(h.titles.length, titles.length)} of the answer key, line(s) ${h.lines.join(", ")}`,
+    );
   }
   console.error("");
   console.error("  A labeler in this checkout can open any of these in one keystroke and the");

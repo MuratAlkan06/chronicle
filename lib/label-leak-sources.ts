@@ -4,8 +4,9 @@
  *
  * SINGLE SOURCE OF TRUTH. Two consumers import this module and neither keeps a
  * copy:
- *   - `scripts/make-label-packet.ts` renders it as the packet README's numbered
- *     rule block and as the runtime "DO NOT OPEN" banner printed at handover.
+ *   - `scripts/make-label-packet.ts` renders it as the packet README's bulleted
+ *     list of examples and as the runtime "DO NOT OPEN" banner printed at
+ *     handover.
  *   - `scripts/check-label-leaks.ts` greps every tracked file for verbatim
  *     original ground-truth titles and FAILS if any hit falls outside this list.
  *
@@ -236,7 +237,7 @@ export function leakSources(cases: LabeledCaseId[] = LABELED_CASES): LeakSource[
       },
       {
         path: `data/cases/${c}/source_drafts/`,
-        why: "your packet documents WITH the [SNIPPET] answer key still in them — exactly one marked block per original ground-truth event, zero mismatches — plus README.md, which names the planted cross-document contradiction.",
+        why: "the case documents WITH the [SNIPPET] answer key still in them — exactly one marked block per original ground-truth event, zero mismatches — plus README.md, which names the planted cross-document contradiction. Your packet ships no copy of any document precisely so that nothing in it can be set against these.",
       },
       {
         path: `data/cases/${c}/events.json`,

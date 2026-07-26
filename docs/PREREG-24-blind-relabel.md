@@ -796,3 +796,215 @@ Amendment 1 and from Amendment 2.
 
 **This document still quotes no ground-truth title.** §5's third bullet and §7's
 second reason both describe the same one without reproducing it, for that reason.
+
+---
+---
+
+## Amendment 4 (2026-07-26)
+
+**Everything above this delimiter is unchanged.** The original pre-registration
+(sha256 `5628ef79…5416a`, 8464 bytes) is comment `5082307494`; Amendment 1 is
+comment `5082472776`; Amendment 2 is the comment after it, and the three together
+are byte-locked at the 28505-byte prefix `a661fc2a…fbdd948`. Amendment 3 follows,
+and its bytes are unchanged too. None has been edited. This is a fifth comment,
+later again. The repo copy is append-only: `git diff --numstat` on this file for
+this change shows **zero deletions**.
+
+**This amendment withdraws an artifact from the labeler's packet.** Amendment 3
+§7 posted an arrangement in which the labeler holds a marker-stripped markdown
+copy of every case document **and** may open the case PDFs. **The markdown half
+is withdrawn.** The packet is now its README and the `blind_labels.json`
+template, and nothing else; the documents the labeler reads are
+`data/cases/<case>/docs/*.pdf`, **in place**. The PDF carve-out is unchanged and
+its `pdftotext` verification was re-run for this amendment. No prediction,
+interval, threshold or decision band moves, and **no blind label exists yet**,
+which is again the only reason this is a repair rather than a disclosure.
+
+### 1. Why the copies are gone: a sixth defect, of a class three point fixes had each failed to close
+
+Re-verification found a sixth finding in the count-leak class, and it is not a
+stray number in a header. **It is the copy itself.**
+
+Every packet document was `authored header + marker-stripped body`. The
+`[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` pair is a constant **37 bytes**, and
+Amendment 3 §1 already records the decoding rule — exactly one marked block per
+original ground-truth event, zero mismatches. So
+
+> (source_bytes − packet_body_bytes) / 37
+
+is that document's original event count. Measured against the real labels it is
+exact on **every dev document, with zero remainder and no near-misses**. And the
+attacker never needed to know what the markers say: the **GCD of the per-document
+deltas across the corpus is 37**, so the constant falls out of the deltas
+themselves.
+
+`source_bytes` required no forbidden file to be opened, by either of two routes.
+The generator's own read ledger printed it. And `ls -l` on the drafts directory
+gives it with no read at all — on a listing the packet's own banner explicitly
+declined to forbid, on the stated ground that *listing a directory is not opening
+a file in it*. That ground is true. It was not sufficient.
+
+**The generalization, which is the durable lesson and not the incident: any
+observable that correlates with how much was removed leaks the count.** Byte
+size, line count, whitespace, structure, checksums. The three fixes before this
+one each closed one observable — the per-document header count, then the same
+count in the handover summary, then whitespace and structural proxies for it —
+and each time the next audit found another. Rounds four, five and six are not
+three defects; they are three instances of one, and **patching observables one at
+a time cannot terminate**, for the same reason an enumeration of forbidden files
+could not: the next one is always the one nobody thought to measure.
+
+**So the fix is to stop shipping a derived artifact at all**, which removes the
+class rather than the instance. The packet contains no copy, no document body, no
+per-document header and no per-document artifact of any kind — so there is no
+pairing left for any differential to be computed over.
+
+This is the same shape of move as Amendment 3 §2's sitting guard, where a written
+warning that the answer-bearing gate must not be run mid-sitting was replaced by
+a gate that refuses to run. In both cases an enumeration that depends on someone
+noticing the next item is replaced by a structural property that does not depend
+on anyone's judgment at all.
+
+### 2. What that does to Amendment 3 §7's second reason
+
+§7 argued the PDF carve-out partly from a premise this change removes: that the
+extracted text of every dev PDF was compared against *"the packet `.md` document
+the labeler already holds for it"*, and that opening the PDFs therefore *"hands
+the labeler nothing their packet does not already contain."* **There is no packet
+copy left to compare against, so that sentence no longer states anything.** It is
+superseded here rather than left standing to be read as still load-bearing.
+
+The replacement is narrower, and it is what the carve-out now rests on. The
+`pdftotext` verification was re-run: every dev PDF extracts a clean text layer,
+**zero** marker lines appear in any of them, and across all of them the count of
+verbatim in-scope original titles is the same **one** irreducible occurrence
+already registered in §5's third bullet and §7's second reason — the one the
+clinical document states because it *is* the document. Nothing else in the
+extracted text reproduces an original title.
+
+What changed is the accounting, and it changed in the safe direction. **The
+packet's own count of verbatim original title occurrences is now zero**, where it
+was one. The irreducible occurrence has not been removed from the world; it has
+been left where it always was, inside the document, and a labeler meets it by
+reading the document — exactly as Case 3's labeler met the equivalent in theirs.
+
+### 3. What it does to the experiment: it improves comparability
+
+This is not a cost absorbed for safety's sake. Case 3's labeler worked from PDFs
+under the same docs/EVAL.md §5 protocol this packet quotes verbatim. While the
+packet shipped markdown copies, the two labeling regimes differed in **two**
+things: phrasing, which is the quantity under test, and reading medium, which is
+not. Removing the markdown intermediary removes the second. The regimes are now
+more alike, not less — in an experiment that exists to isolate one variable.
+
+What was actually traded is convenience: a `.md` file opens in an editor and a
+PDF does not. The copies carried no instruction — every binding instruction is
+inlined in the packet — so nothing the labeler needs went with them.
+
+### 4. What this amendment does not change
+
+**No prediction, no point estimate, no interval, no threshold and no decision
+band is changed.** As originally registered and restated unchanged by Amendments
+2 and 3: direction (macro-mean strict F1 decreases from **0.825**); point
+estimate **~0.60**, interval **0.50 – 0.70**; per-type ordering (`medication`
+most, `visit` least, `lab` intermediate), directional only per Limitation 2;
+`overlap` as the dominant loss mechanism; bands **< 0.60** / **0.60 – 0.75** /
+**> 0.75**, with the band governing over the point estimate. Amendment 3 §3's
+replacement of the withdrawn "upper bound" claim stands as written, as do
+Limitations 1–4 and the byte-locked Protocol section.
+
+This amendment narrows **what the labeler holds**. It does not touch what is
+being predicted, or how the result is read.
+
+### 5. A correction to §7's "one irreducible occurrence" was proposed, and is rejected on measurement
+
+A correction was put to this record asserting that the "exactly one verbatim
+in-scope title" claim undercounts by one, naming a specific in-scope case1 title
+and the case1 primary-care document it was said to occur in. **It was measured,
+and it does not hold.** That document does not contain the title string. It
+reports the same clinical finding in its own phrasing, in running text and again
+in a table cell — which is expected, since that phrasing is what the original
+label was written *from*, and is not an occurrence of the label.
+
+The sweep behind that: every dev source draft, and the `pdftotext` output of
+every dev PDF, tested against every in-scope original title of both cases.
+Verbatim, and again under case-folding, dash unification and whitespace collapse,
+the result is **exactly one occurrence** — the same case2 referral document, on
+both surfaces.
+
+**One residual is disclosed rather than smoothed, because the proposed correction
+is not simply false, and recording it as simply false would be this round's own
+error committed again.** Under a third and much lossier normalization — deleting
+every non-alphanumeric character and then testing for a substring — the named
+document does match. That is a property of the measure, not of the document: with
+all separators deleted, the title in question collapses to a short alphanumeric
+run, and any text mentioning the same finding at the same value must contain that
+run however it is punctuated. A measure that cannot distinguish *the title
+appears here* from *the subject of the title is mentioned here* is not measuring
+title occurrence. **§7's claim stands as written, and the correction is rejected
+on the narrow ground that the title does not occur — not on the broad ground that
+nothing resembling it does.**
+
+The count therefore stands at **one** in the source material and **zero** in the
+packet. This is recorded because a pre-registration that quietly absorbed a wrong
+correction would be worse than one that never received it — and, symmetrically,
+because one that recorded a rejection more confidently than its own measurement
+supports would be worse again.
+
+**Neither string is reproduced here, and that is not squeamishness.** The title
+the correction named is a verbatim in-scope original ground-truth title, one of a
+family of near-identical titles differing only in the value they carry; writing
+it into this document would leak the exact phrasing this experiment measures, and
+would falsify the closing line of Amendment 3. The document's own wording is
+withheld for the same reason — it differs from the title only in separator and
+suffix, so quoting it would reconstruct the title. The finding survives the
+omission, because it is a finding about whether a string occurs and not about
+what the string is.
+
+### 6. The integer sweep of this amendment's own text
+
+Amendment 3's status section binds every amendment to carry no figure that is a
+count of the original labels. Two figures above were checked against that rule
+rather than assumed to pass it.
+
+**`37` is kept.** It is the byte length of a marker pair — a constant of the
+instrument, not a quantity derived from any label — and it is inert without a
+packet body to subtract it from, which is precisely what no longer exists. This
+amendment's own argument is that the constant was never the secret anyway, since
+the GCD recovers it.
+
+**The size of the dev document corpus is not restated here as an integer.** It is
+not being withheld: Amendment 3 §7 states it above, and Amendment 3's own rule
+counts documents in the repository as safe to count. It is omitted from *this*
+amendment because that same integer also appears above as one case's in-scope
+original event count, and this amendment's entire subject is the recovery of
+event counts from document-level quantities. One integer serving both roles
+inside that argument buys ambiguity and buys nothing back. **The claims carry
+without it:** the differential is exact on *every* dev document with zero
+remainder, the GCD of the per-document deltas is 37, and §5's sweep covers
+*every* dev draft and *every* dev PDF. Where a reader needs the size, it is a
+directory listing away, and the packet's reading-order table hands it to the
+labeler regardless.
+
+### Status at the time of this amendment
+
+Registered **before any blind label exists**, exactly as the original and
+Amendments 1, 2 and 3 were. `blind_labels.json` is still the pristine generated
+template for **both** cases, `scripts/compare-relabel.ts` has **never been run**,
+and this amendment — like the four texts above it — contains **zero results**.
+Every number in it is a byte constant of the marker pair, a hash or a byte length
+of a document in this repository, a count of title occurrences in the source
+documents themselves, or a figure restated unchanged from above.
+
+**The amendment window closes at the sitting, not at the merge.** Any further
+correction to this protocol is legitimate only while `blind_labels.json` remains
+a pristine template. Once the first label is written the instrument is frozen,
+and anything found after that is a limitation to be reported with the result, not
+an amendment.
+
+`lib/eval.ts` remains unmodified — sha256 `4540d12b…a09333`, 4900 bytes,
+re-verified at the time of writing and unchanged from registration and from
+Amendments 1, 2 and 3.
+
+**This document still quotes no ground-truth title.** §5 above is the first place
+where declining to quote one had to be said out loud rather than merely done.

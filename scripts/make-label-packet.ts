@@ -17,17 +17,36 @@
  * ---------------------------------------------------------------------------
  * BLINDNESS IS STRUCTURAL, NOT ADVISORY.
  *
+ * **NO READ THIS SCRIPT PERFORMS CONTRIBUTES A BYTE TO A PACKET.** That is a
+ * property of the type, not a promise: `ReadPurpose` has no member meaning
+ * "packet content", because since 2026-07-26 the packet contains no document,
+ * no copy of one and nothing derived from one. It is a README, a blind-label
+ * template and a list of PDF filenames the labeler is sent to read in place.
+ *
+ * `data/cases/<case>/source_drafts/` — the drafts carrying the `[SNIPPET]`
+ * answer key — is no longer read, no longer listed, and is now on the DENYLIST
+ * below, so reintroducing the read fails closed instead of shipping quietly.
+ * Why that is the fix rather than another round of redaction is recorded at the
+ * top of `lib/label-packet.ts`: the packet used to ship a marker-stripped copy
+ * of each draft, and a copy is a second ledger — `source_bytes − copy_bytes` is
+ * a constant times that document's original event count, recoverable from a
+ * directory listing, with no need to know what the markers say. Every observable
+ * of a derived copy carries the same information, so removing observables one at
+ * a time could not terminate; removing the copy does.
+ *
  * Every read of repository source material goes through `readAllowed` /
  * `listAllowed`, which check an explicit ALLOWLIST built up-front and an
- * explicit DENYLIST. There is exactly one further reader, `readOwnPacketFile`,
- * which reads the packet's OWN `blind_labels.json` for the clobber guard and
- * emits nothing. All three append to a read ledger printed in full at the end of
- * every run, so the printed ledger is the complete list.
+ * explicit DENYLIST. There are exactly two further readers, `readOwnPacketFile`
+ * and `listOwnPacketDir`, which read the packet's OWN `blind_labels.json` for
+ * the clobber guard and its OWN directory for the stale-artifact guard; neither
+ * touches repository source material and neither emits. All four append to a
+ * read ledger printed in full at the end of every run, so the printed ledger is
+ * the complete list.
  *
  * That is checkable rather than asserted: grepping this file for
- * `readFileSync|readdirSync|readFile|createReadStream|openSync` returns five
+ * `readFileSync|readdirSync|readFile|createReadStream|openSync` returns six
  * lines — THIS sentence, which names the patterns and so matches itself; the
- * `node:fs` import; and exactly three call sites, one inside each of those three
+ * `node:fs` import; and exactly four call sites, one inside each of those four
  * functions and nowhere else. (It returned four before 2026-07-26, which was
  * wrong by one for the same self-matching reason: the count never included this
  * line. Prose that states its own grep result has to count itself.)
@@ -46,45 +65,30 @@
  * verified, rather than sliced out of those files at runtime.
  *
  * Symmetrically, every write goes through `writePacket`, which appends to a
- * write ledger (path, bytes, sha256) also printed in full. Reads in, writes out,
- * both auditable from one run's stdout.
+ * write ledger (path, bytes, sha256) also printed in full, and refuses any
+ * filename outside `PACKET_ARTIFACTS`. Reads in, writes out, both auditable from
+ * one run's stdout.
  * ---------------------------------------------------------------------------
  *
- * Also stripped, deliberately (see the packet README's "What was withheld"):
+ * Withheld, deliberately (see the packet README's "What was withheld"):
+ *   - THE DOCUMENTS THEMSELVES, in any derived form. The labeler reads
+ *     `data/cases/<case>/docs/*.pdf` in place. `pdftotext` extracts a clean text
+ *     layer from all 13 dev PDFs (case1 7, case2 6) and finds ZERO `[SNIPPET]`
+ *     marker lines in any of them, so the PDFs hand over nothing the drafts'
+ *     markers would. Reading them in place is also what Case 3's labeler did,
+ *     which makes the two labeling regimes differ in less, not more.
  *   - `[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` marker lines in the drafts.
  *     There is exactly ONE marked block per ORIGINAL GROUND-TRUTH EVENT, in
  *     every document of both cases, with zero mismatches. The markers are
  *     therefore a complete answer key to the original labels AND to their
- *     granularity, laid over the documents.
- *
- *     **And so is a COUNT of them.** Markers are paired: halve a per-document
- *     marker-line count and you have that document's original event count; sum
- *     them and you have the case total. Until 2026-07-26 this script printed
- *     exactly that number twice — in every packet document's provenance header,
- *     four lines under the `source_document` value the labeler must copy, and
- *     again in the closing per-case summary. All 13 documents' original event
- *     counts were recoverable by dividing by two, and the packet README stated
- *     the decoding rule outright. Both numbers are gone; see the count invariant
- *     in `lib/label-packet.ts` for the rule that replaced them and Amendment 3
- *     of docs/PREREG-24-blind-relabel.md for what it invalidated.
+ *     granularity, laid over the documents. They stay in `source_drafts/`, which
+ *     is forbidden to the labeler and denied to this script.
  *
  *     They do NOT "map 1-1 onto `events.json` `source.snippet` anchors" — the
  *     claim this comment and the packet README both carried until 2026-07-26.
  *     Measured: several marked blocks have no prediction snippet, and rather
- *     more prediction snippets have no marked block. The stripping was always
- *     the right mitigation; only its stated rationale was wrong, and wrong in
- *     the direction that made the leak sound smaller than it is.
- *
- *     Stripping makes the packet read like the PDF the model actually saw, and
- *     that is now checked DIRECTLY rather than inferred: `pdftotext` extracts a
- *     clean text layer from all 13 dev PDFs (case1 7, case2 6; ~11.5k non-
- *     whitespace characters each case) and finds ZERO marker lines in any of
- *     them. That supersedes the earlier argument from the print-ready HTML
- *     twins, which reached the same conclusion one step removed — the twins are
- *     what the PDFs were exported from, whereas this reads the PDFs themselves.
- *     The snippet TEXT itself stays verbatim — it is part of the document.
- *     Because the ORIGINALS still carry the key, the packet README puts
- *     `data/cases/<case>/source_drafts/` on the forbidden list.
+ *     more prediction snippets have no marked block. What the markers track is
+ *     the ORIGINAL LABELS, which is the more damaging of the two.
  *   - `source_drafts/README.md`, which names the planted d3-vs-d5 contradiction.
  *   - Any target event count. §5's checklist carries one; it is an anchor, and
  *     handing it to a blind labeler contaminates the count comparison. It is
@@ -118,15 +122,13 @@ import {
   PROTOCOL_BLOCKS,
   PROMPT_BLOCKS,
   SITTING_RULE_LINES,
+  PACKET_ARTIFACTS,
   type ProtocolBlock,
   type PacketDoc,
   docOrder,
-  stripSnippetMarkers,
-  hasMarkerResidue,
   templateJson,
   sittingState,
   packetReadme,
-  packetDocFile,
 } from "../lib/label-packet";
 
 const TAG = "[label-packet]";
@@ -147,13 +149,29 @@ const PROMPT_PATH = "prompts/system_extract_v4.md";
 // ---------------------------------------------------------------------------
 // IO LEDGER — the auditable core. Nothing reads or writes outside these two.
 // ---------------------------------------------------------------------------
-type ReadPurpose = "packet-content" | "listing" | "fidelity-check" | "clobber-guard";
+/**
+ * THERE IS NO `packet-content` MEMBER, and its absence is the guarantee.
+ *
+ * Every purpose below is a read whose content is consumed and discarded inside
+ * one function: a directory listing yields filenames, a fidelity check yields a
+ * boolean, the clobber guard yields a comparison. None of them can put a byte
+ * into a packet, and adding a purpose that could would mean adding a member
+ * here.
+ *
+ * The ledger prints no BYTE SIZE for any of these, deliberately. A size printed
+ * beside a path is a measurement of a file, and a measurement of a file that a
+ * labeler can also measure — by `ls -l`, or `wc -c` — is a differential waiting
+ * for a second term. That is precisely how the marker-stripped document copies
+ * leaked: two sizes of the same document, one in the ledger and one on disk,
+ * subtract to a multiple of the event count. Sizes of files the labeler HOLDS
+ * are still printed, in the WRITE ledger, because they measure the labeler's own
+ * artifacts against nothing.
+ */
+type ReadPurpose = "listing" | "fidelity-check" | "clobber-guard" | "artifact-guard";
 
 interface ReadRecord {
   path: string; // repo-relative
   purpose: ReadPurpose;
-  bytes: number;
-  emitted: boolean; // does any byte of this read reach the packet?
 }
 
 interface WriteRecord {
@@ -176,6 +194,10 @@ const ALLOWED_DIRS = new Set<string>();
 const DENY_PATTERNS: Array<{ re: RegExp; why: string }> = [
   { re: /(^|\/)held_out(\/|$)/, why: "held_out/ is terminal held-out budget (RESOLVED-DECISIONS #10)" },
   { re: /case3/i, why: "anything Case 3 is held out" },
+  {
+    re: /(^|\/)source_drafts(\/|$)/,
+    why: "the drafts carry the [SNIPPET] answer key; nothing derived from them may reach a packet",
+  },
   { re: /(^|\/)ground_truth\.json$/, why: "original labels are the baseline this experiment measures against" },
   { re: /(^|\/)events\.json$/, why: "cached model predictions — the answer" },
   { re: /(^|\/)eval_reports(\/|$)/, why: "scored reports derived from predictions + labels" },
@@ -272,6 +294,10 @@ function reportLeakSources(cases: CaseId[]): void {
   console.log("  but the answer key is the next entry along, so decide before you go in there,");
   console.log("  not while you are in there.");
   console.log("");
+  console.log("  Your packet holds no copy of any document, by design: a copy is a measurement of");
+  console.log("  the original, and its size gave away how much had been removed from it. The");
+  console.log("  packet is instructions; the PDFs are the documents. Read them in place.");
+  console.log("");
   console.log("  If you catch yourself weighing whether some OTHER file is safe, you have already");
   console.log("  left the packet. You do not have to work out what it contains; the answer is no.");
   console.log("  And if the packet is missing something you genuinely need, that is a defect in");
@@ -304,12 +330,7 @@ function readAllowed(abs: string, purpose: ReadPurpose): string {
   }
   denyCheck(abs);
   const content = readFileSync(abs, "utf8");
-  READS.push({
-    path: rel,
-    purpose,
-    bytes: Buffer.byteLength(content, "utf8"),
-    emitted: purpose === "packet-content",
-  });
+  READS.push({ path: rel, purpose });
   return content;
 }
 
@@ -321,7 +342,7 @@ function listAllowed(abs: string): string[] {
   }
   denyCheck(abs);
   const names = readdirSync(abs).sort();
-  READS.push({ path: `${rel}/ (names only)`, purpose: "listing", bytes: 0, emitted: false });
+  READS.push({ path: `${rel}/ (names only)`, purpose: "listing" });
   return names;
 }
 
@@ -330,16 +351,37 @@ function listAllowed(abs: string): string[] {
  * the printed ledger is the complete list. Its content never leaves the guard. */
 function readOwnPacketFile(abs: string): string {
   const content = readFileSync(abs, "utf8");
-  READS.push({
-    path: repoRel(abs),
-    purpose: "clobber-guard",
-    bytes: Buffer.byteLength(content, "utf8"),
-    emitted: false,
-  });
+  READS.push({ path: repoRel(abs), purpose: "clobber-guard" });
   return content;
 }
 
+/** The packet's OWN directory, listed by the stale-artifact guard. Ledgered for
+ * the same reason as the reader above: the printed ledger is only "the complete
+ * list" if nothing reads or lists outside these helpers. Names only, and no
+ * repository source material is involved — the directory it lists is the one
+ * this script is writing. */
+function listOwnPacketDir(abs: string): string[] {
+  const names = readdirSync(abs).sort();
+  READS.push({ path: `${repoRel(abs)}/ (names only)`, purpose: "artifact-guard" });
+  return names;
+}
+
+/** The only writer. Refuses any filename outside {@link PACKET_ARTIFACTS}.
+ *
+ * This is the mechanized form of the rule at the top of `lib/label-packet.ts`:
+ * the packet is a README, a template, and nothing else. A derived document copy
+ * — the artifact whose SIZE leaked every document's original event count — can
+ * only come back by someone editing that array, which is a change a reviewer
+ * sees. A guard on the write path catches it whatever route the content took to
+ * get here. */
 function writePacket(abs: string, content: string): void {
+  const name = abs.split(sep).pop() ?? "";
+  if (!(PACKET_ARTIFACTS as readonly string[]).includes(name)) {
+    console.error(`${TAG} REFUSED write of "${repoRel(abs)}" — not one of ${PACKET_ARTIFACTS.join(", ")}`);
+    console.error(`${TAG} The packet ships instructions only. Anything derived from a document`);
+    console.error(`${TAG} stands in a fixed arithmetic relation to it; see lib/label-packet.ts.`);
+    process.exit(1);
+  }
   const bytes = Buffer.byteLength(content, "utf8");
   writeFileSync(abs, content, "utf8");
   WRITES.push({
@@ -365,46 +407,30 @@ function verifyFidelity(relPath: string, blocks: ProtocolBlock[]): FidelityResul
 }
 
 // ---------------------------------------------------------------------------
-// Source documents.
+// The reading-order manifest — FILENAMES ONLY.
+//
+// Everything the generator learns about the case documents comes from one
+// directory listing of `data/cases/<case>/docs/`. No document is opened, here or
+// anywhere else in this script: the labeler opens the PDFs themselves, in a PDF
+// viewer, which is what Part A's protocol tells them to do and what Case 3's
+// labeler did.
+//
+// `data/cases/<case>/source_drafts/` is not read, not listed, and is on
+// DENY_PATTERNS. It used to be the packet's document source, with the `[SNIPPET]`
+// markers stripped out on the way through — and the stripped copy's size, set
+// against the draft's, was that document's original event count. See the rule at
+// the top of `lib/label-packet.ts`.
 // ---------------------------------------------------------------------------
 interface CaseListing {
-  draftsDir: string;
-  draftNames: string[]; // reading order
-  pdfNames: Set<string>;
+  pdfNames: string[]; // reading order
 }
 
 function collectDocs(caseId: CaseId, listing: CaseListing): PacketDoc[] {
-  const { draftsDir, draftNames, pdfNames } = listing;
-
-  return draftNames.map((name, i) => {
-    const raw = readAllowed(join(draftsDir, name), "packet-content");
-    const { body } = stripSnippetMarkers(raw);
-    const pdfName = name.replace(/\.md$/, ".pdf");
-    if (!pdfNames.has(pdfName)) {
-      console.error(`${TAG} ${caseId}: draft "${name}" has no matching PDF "${pdfName}" in docs/`);
-      process.exit(1);
-    }
-
-    // Fail-closed residue check. `hasMarkerResidue` matches a WIDER pattern than
-    // the stripper does, which is the whole value of it: if the drafts' marker
-    // spelling ever drifts, the stripper silently becomes a no-op, and a check
-    // written against the stripper's own regex would drift with it and pass. The
-    // failure this guards is a packet that ships the answer key.
-    //
-    // It reports a path and a kind, never a count and never the offending text.
-    // A count of marker lines is the segmentation key (they are paired, one
-    // block per original event); printing it on the failure path would leak it
-    // to the same person who is about to read the packet, which is the exact
-    // defect Amendment 3 §1 records. The draft is on disk for whoever debugs it.
-    if (hasMarkerResidue(body)) {
-      console.error(`${TAG} REFUSED — ${caseId}/${name}: [SNIPPET] marker text survived stripping.`);
-      console.error(`${TAG} The marker spelling in the drafts has probably drifted from SNIPPET_MARKER`);
-      console.error(`${TAG} in lib/label-packet.ts. Nothing was written. Do NOT hand over this packet.`);
-      process.exit(1);
-    }
-
-    return { order: i + 1, draftFile: name, sourceDocument: pdfName, body };
-  });
+  if (listing.pdfNames.length === 0) {
+    console.error(`${TAG} ${caseId}: no PDFs in data/cases/${caseId}/docs/ — nothing to send the labeler to`);
+    process.exit(1);
+  }
+  return listing.pdfNames.map((name, i) => ({ order: i + 1, sourceDocument: name }));
 }
 
 // ---------------------------------------------------------------------------
@@ -432,6 +458,41 @@ function assertNotClobbering(caseId: CaseId, labelsPath: string): void {
   process.exit(1);
 }
 
+/**
+ * Refuses to regenerate INTO a directory holding anything this generator would
+ * not write.
+ *
+ * Rewriting is not the same as replacing. Packets generated before 2026-07-26
+ * carried a `docs/` subdirectory of marker-stripped document copies, and those
+ * copies are the artifact this round removed — a regeneration that only
+ * overwrites the README and the template would leave every one of them sitting
+ * in the labeler's packet, with the new README saying no such file exists. A
+ * stale artifact from the shape being abandoned is the worst case a "just write
+ * the new files" path produces.
+ *
+ * Same posture as the clobber guard above and for the same reason: it refuses
+ * and names what to move, rather than deleting anything on the operator's
+ * behalf. The packet directory is open to the labeler — notes may legitimately
+ * be in there — and a generator that deletes files it did not write is a worse
+ * failure than one that stops.
+ */
+function assertNoForeignArtifacts(caseId: CaseId, caseOut: string): void {
+  if (!existsSync(caseOut)) return;
+  const foreign = listOwnPacketDir(caseOut).filter(
+    (n) => !(PACKET_ARTIFACTS as readonly string[]).includes(n),
+  );
+  if (foreign.length === 0) return;
+
+  console.error(`${TAG} REFUSED — ${repoRel(caseOut)}/ holds ${foreign.length} entr(ies) this generator does not write:`);
+  for (const n of foreign) console.error(`${TAG}   ${n}`);
+  console.error(`${TAG} A packet is ${PACKET_ARTIFACTS.join(" + ")} and nothing else. Anything else in`);
+  console.error(`${TAG} there is either stale — packets before 2026-07-26 shipped copies of the case`);
+  console.error(`${TAG} documents, which is exactly what this shape removes — or yours, in which case`);
+  console.error(`${TAG} this script must not touch it. Move it aside and re-run:`);
+  console.error(`${TAG}   mv ${repoRel(caseOut)} ${repoRel(caseOut)}.kept`);
+  process.exit(1);
+}
+
 // ---------------------------------------------------------------------------
 function buildAllowlist(cases: CaseId[]): Map<CaseId, CaseListing> {
   ALLOWED_FILES.add(resolve(process.cwd(), "docs/EVAL.md"));
@@ -439,28 +500,20 @@ function buildAllowlist(cases: CaseId[]): Map<CaseId, CaseListing> {
   const out = new Map<CaseId, CaseListing>();
 
   for (const caseId of cases) {
-    const draftsDir = resolve(process.cwd(), "data", "cases", caseId, "source_drafts");
     const pdfDir = resolve(process.cwd(), "data", "cases", caseId, "docs");
-    for (const d of [draftsDir, pdfDir]) {
-      if (!existsSync(d)) {
-        console.error(`${TAG} ${caseId}: missing ${repoRel(d)}`);
-        process.exit(1);
-      }
+    if (!existsSync(pdfDir)) {
+      console.error(`${TAG} ${caseId}: missing ${repoRel(pdfDir)}`);
+      process.exit(1);
     }
-    ALLOWED_DIRS.add(draftsDir);
+    // The ONLY directory this script lists, and the only thing it takes from it
+    // is filenames. Nothing under it is added to ALLOWED_FILES, so `readAllowed`
+    // would refuse to open a PDF even if something asked it to.
     ALLOWED_DIRS.add(pdfDir);
 
-    // Allowlist only the numbered document drafts. `source_drafts/README.md` is
-    // excluded by the `d<N>_` pattern AND named explicitly — it describes the
-    // contradiction planted between two of the documents. The `.html` twins are
-    // never allowlisted either, so `readAllowed` would refuse any of them.
-    const draftNames = listAllowed(draftsDir)
-      .filter((n) => n.endsWith(".md") && n !== "README.md" && /^d\d+_/.test(n))
+    const pdfNames = listAllowed(pdfDir)
+      .filter((n) => n.toLowerCase().endsWith(".pdf"))
       .sort((a, b) => docOrder(a) - docOrder(b) || a.localeCompare(b));
-    for (const n of draftNames) ALLOWED_FILES.add(join(draftsDir, n));
-
-    const pdfNames = new Set(listAllowed(pdfDir).filter((n) => n.toLowerCase().endsWith(".pdf")));
-    out.set(caseId, { draftsDir, draftNames, pdfNames });
+    out.set(caseId, { pdfNames });
   }
 
   return out;
@@ -560,25 +613,24 @@ function main(): void {
     const labelsPath = join(caseOut, "blind_labels.json");
     const template = templateJson(caseId);
     assertNotClobbering(caseId, labelsPath);
+    assertNoForeignArtifacts(caseId, caseOut);
     return { caseId, caseOut, labelsPath, template, docs: collectDocs(caseId, listing) };
   });
 
   for (const { caseId, caseOut, labelsPath, template, docs } of planned) {
-    mkdirSync(join(caseOut, "docs"), { recursive: true });
+    mkdirSync(caseOut, { recursive: true });
     writePacket(join(caseOut, "README.md"), packetReadme(caseId, docs));
     writePacket(labelsPath, template);
-    for (const d of docs) {
-      writePacket(join(caseOut, "docs", d.draftFile), packetDocFile(caseId, d, docs.length));
-    }
 
-    // Document count only. This line used to add the case's total stripped
-    // marker-line count, which halves straight into the case's original event
-    // total — printed to the terminal at the moment the packet is handed to the
-    // labeler. `docs.length` is a count of files the labeler is holding; it is
-    // not derived from the labels and stays.
+    // A count of PDFs in a directory the labeler is sent to and can `ls`. It is
+    // not derived from the labels, and it is the only quantity this loop has.
+    // The line under it used to say how many marker lines were stripped from
+    // those documents, which halved straight into the case's original event
+    // total — printed to the terminal at the moment the packet was handed over.
+    // There is no stripping any more, so there is nothing left to count.
     console.log("");
-    console.log(`  ${caseId}: ${docs.length} document(s) written`);
-    console.log(`  ${" ".repeat(caseId.length)}  [SNIPPET] marker lines stripped; document text otherwise verbatim`);
+    console.log(`  ${caseId}: packet written; the labeler is sent to ${docs.length} PDF(s)`);
+    console.log(`  ${" ".repeat(caseId.length)}  in data/cases/${caseId}/docs/, read in place — no document is copied`);
   }
 
   // ---- IO ledger -----------------------------------------------------------
@@ -587,39 +639,55 @@ function main(): void {
   console.log(`${TAG} FILES READ (complete — every read in this script goes through readAllowed/listAllowed)`);
   console.log("=".repeat(96));
   for (const r of READS) {
-    const emitted = r.emitted ? "-> packet" : "not emitted";
-    console.log(`  ${r.purpose.padEnd(15)} ${String(r.bytes).padStart(7)}B  ${emitted.padEnd(11)}  ${r.path}`);
+    console.log(`  ${r.purpose.padEnd(15)}  ${r.path}`);
   }
   console.log("");
-  // WHAT THIS NUMBER COUNTS, stated so an auditor comparing it against an
-  // OS-level trace does not trip on the difference. It counts reads THIS SCRIPT
-  // performs through readAllowed / listAllowed / readOwnPacketFile, and nothing
-  // else. It structurally cannot count the module loader reading this file and
-  // its imports before main() runs — those are code, not repository source
-  // material, and no byte of them can reach a packet — so a syscall-level trace
-  // of the same run will always report a few more.
+  // Not a promise — a property of ReadPurpose, which has no member meaning
+  // "packet content". No byte of any file above can reach a packet, because
+  // there is no code path that would carry one there.
+  console.log(
+    `  NONE of these reads emits into a packet: a listing yields filenames, a fidelity check`,
+  );
+  console.log(
+    `  yields a boolean, the clobber guard yields a comparison. No size is printed for them`,
+  );
+  console.log(
+    `  either — a size beside a path is one term of a differential, and the packet's stripped`,
+  );
+  console.log(`  document copies (now gone) were the other.`);
+  console.log("");
+  // THE TOTAL IS NOT PRINTED, and that is deliberate rather than an oversight.
   //
-  // The total also depends on prior state: a FRESH run (no label_packet/) makes
-  // 19 reads for both cases; re-running over existing packets adds one
-  // clobber-guard read per case, which is why this line prints a live count
-  // rather than a fixed number.
-  const guardReads = READS.filter((r) => r.purpose === "clobber-guard").length;
+  // This block used to end with an "N read(s) total" line. The number has no
+  // consumer — the ledger above enumerates every read, so anyone who wants a
+  // total counts the lines — and it has now collided with an original event
+  // total TWICE, under two different definitions of what the script reads. Both
+  // collisions were arithmetic coincidences rather than causal leaks, and both
+  // were handled by carving the line out of the audit's count scan, which is a
+  // carve-out that has to be re-argued every time the arithmetic moves. It moved
+  // again this round. A bookkeeping figure nobody needs is not worth a standing
+  // exception in the check that exists to catch anchors.
+  //
+  // The ledger itself is unchanged in substance: it is still the complete list
+  // of reads this script performs through readAllowed / listAllowed /
+  // readOwnPacketFile / listOwnPacketDir. It structurally cannot include the
+  // module loader's reads of this file and its imports — those are code, not
+  // repository source material, and no byte of them can reach a packet — so a
+  // syscall-level trace of the same run will always show more entries than this.
   console.log(
-    `  ${READS.length} read(s) total by this script — ${READS.length - guardReads} of repository source material,` +
-      ` ${guardReads} clobber-guard read(s) of the packet's own blind_labels.json.`,
+    `  The list above is complete for this script. It excludes the module loader's own reads`,
   );
   console.log(
-    `  Excludes the module loader's own reads of this script and its imports (code, not`,
+    `  of this file and its imports (code, not source material), so a syscall-level trace of`,
+  );
+  console.log(`  the same run will always show more entries than it does.`);
+  console.log(
+    `  Not read, by explicit denylist: held_out/**, */source_drafts/**, */ground_truth.json,`,
   );
   console.log(
-    `  source material): a syscall-level trace of this run will count a few more than ${READS.length}.`,
+    `  */events.json, data/eval_reports/**, data/case3_eval_fallback.json, */metadata.json,`,
   );
-  console.log(
-    `  Not read, by explicit denylist: held_out/**, */ground_truth.json, */events.json,`,
-  );
-  console.log(
-    `  data/eval_reports/**, data/case3_eval_fallback.json, */metadata.json, /case3/i.`,
-  );
+  console.log(`  /case3/i.`);
   console.log(
     `  docs/EVAL.md and ${PROMPT_PATH} are read for the verbatim fidelity`,
   );
@@ -636,6 +704,11 @@ function main(): void {
   for (const w of WRITES) {
     console.log(`  ${String(w.bytes).padStart(7)}B  ${w.sha256.slice(0, 12)}  ${w.path}`);
   }
+  console.log("");
+  console.log(`  Sizes appear here and not in the read ledger because these are the labeler's OWN`);
+  console.log(`  files: they can measure them directly, and there is no second copy of anything to`);
+  console.log(`  subtract them from. Every artifact above is authored — a README, a template — and`);
+  console.log(`  none is derived from a case document.`);
 
   // Last thing printed, deliberately: the tooling is blind, the repo is not, and
   // this is the moment the packet is handed to a human.

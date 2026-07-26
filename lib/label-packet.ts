@@ -13,22 +13,45 @@
  * same reasoning `lib/label-leak-sources.ts` and `lib/eval-gate.ts` record.
  *
  * ---------------------------------------------------------------------------
- * THE COUNT INVARIANT — the one rule this module exists to hold.
+ * THE PACKET SHIPS NO ARTIFACT DERIVED FROM THE MARKED DRAFTS.
  *
- * `[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` markers are PAIRED, and there is
- * exactly one marked block per original ground-truth event in every document of
- * both cases. A marker-line count is therefore the segmentation key, twice over:
- * halve it and you have that document's original event count; sum it and you
- * have the case total.
+ * That is the rule this module holds, and it replaced a weaker one that could
+ * not be made to terminate.
  *
- * So: **no function in this module may emit any quantity from which a
- * per-document or aggregate original event count can be recovered.** That
- * includes the obvious spelling (a stripped-marker count) and every invertible
- * sibling of it — a block count, a paired-line count, a "before/after" line
- * total, a diff size, a per-document flag that is only set when a document has
- * markers. `stripSnippetMarkers` returns its count because the generator needs
- * a fail-closed residue check, not because anything may print it;
- * `lib/label-packet.test.ts` asserts the rendered packet is free of it.
+ * `[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` markers in
+ * `data/cases/<case>/source_drafts/` are PAIRED, and there is exactly one marked
+ * block per original ground-truth event in every document of both cases. Any
+ * quantity that tracks how much marker text was removed from a draft therefore
+ * IS that draft's original event count.
+ *
+ * The old rule was "emit no such quantity", and it was patched three times: a
+ * stripped-marker count in every document header, then the same count in the
+ * generator's closing summary, then whitespace and structural proxies for it.
+ * Each fix removed one observable and the next audit found another. The
+ * terminating observation is that the packet used to ship a marker-STRIPPED COPY
+ * of every draft, and **a copy is a second ledger**. The marker pair is a
+ * constant 37 bytes, so `source_bytes − copy_bytes` is 37 × that document's
+ * event count — exact on all 13 dev documents, zero remainder — and the GCD of
+ * those deltas across the corpus is 37, so an attacker never needs to know the
+ * marker strings. `source_bytes` is available from a directory listing alone.
+ * Byte size, line count, whitespace, structure, checksums: every observable of a
+ * derived copy correlates with how much was removed from it. Enumerating
+ * observables one at a time cannot close that class.
+ *
+ * So the derived copy is gone. The documents the labeler reads are
+ * `data/cases/<case>/docs/*.pdf`, **read in place** — which the closed default
+ * below already permits, which Case 3's labeler used (so it improves the
+ * comparability this experiment exists to exploit), and which `pdftotext`
+ * confirms carry no marker text in any of the 13. This module renders
+ * INSTRUCTIONS ONLY: a README and a blind-label template. It never sees a
+ * document, and `scripts/make-label-packet.ts` no longer has a read purpose that
+ * emits into a packet.
+ *
+ * The invariant that survives, and now has almost nothing left to bind:
+ * **no function in this module may emit any quantity from which a per-document
+ * or aggregate original event count can be recovered.** A count of the PDFs the
+ * labeler is sent to is not such a quantity — they can get it from `ls` — and
+ * anything derived from the labels is.
  *
  * This is not a style rule. Amendment 2 §3 of docs/PREREG-24-blind-relabel.md
  * registered a protocol whose validity rests on the blind label count being free
@@ -375,64 +398,38 @@ export function asPacketCaseId(name: string): PacketCaseId | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Source documents.
+// THE READING-ORDER MANIFEST.
+//
+// This is the whole of what the packet knows about the case documents: their
+// FILENAMES, and the order to read them in. Both come from a directory listing
+// of `data/cases/<case>/docs/` — names only, no file opened — so everything here
+// is available to the labeler from one `ls` of the directory they are sent to.
+//
+// There is no document body, no copy, no excerpt and no derived measurement of
+// any document anywhere in this module. That is the point: see the rule at the
+// top of the file. `stripSnippetMarkers` / `hasMarkerResidue` / `SNIPPET_MARKER`
+// used to live here, to produce and to guard those copies; they were deleted
+// with the copies rather than kept "in case", because a stripper in the tree is
+// an invitation to ship a second ledger again.
 // ---------------------------------------------------------------------------
-/** A marker LINE: the whole line is the marker and nothing else. */
-export const SNIPPET_MARKER = /^\[\/?SNIPPET\b[^\]]*\]$/;
 
-/** Deliberately WIDER than {@link SNIPPET_MARKER}: any appearance of the marker
- * vocabulary anywhere on a line, not just a line that is exactly a marker.
- *
- * The width is the point. A residue check that reuses the stripper's own regex
- * cannot catch the failure that matters — a drift in the drafts' marker spelling
- * makes the stripper a no-op AND makes the narrow check pass, so the packet
- * ships the answer key silently. This pattern still fires on
- * `[SNIPPET-DO NOT EDIT]`, on an indented marker, and on a marker that picked up
- * a trailing token. */
-export const MARKER_RESIDUE = /\[\s*\/?\s*SNIPPET|DO NOT EDIT/i;
-
+/** One case document, as the packet refers to it: a position in the reading
+ * order and the PDF filename the labeler opens and writes into their labels. */
 export interface PacketDoc {
   order: number;
-  draftFile: string; // e.g. d1_pcp_2023_01.md
   sourceDocument: string; // e.g. d1_pcp_2023_01.pdf — the value to write in labels
-  body: string; // marker-stripped
 }
+
+/** Every file the packet is allowed to contain, and the complete list of them.
+ * `scripts/make-label-packet.ts` refuses to write anything else; a derived
+ * document copy could only come back by editing this array, which is the point
+ * of having it. */
+export const PACKET_ARTIFACTS = ["README.md", "blind_labels.json"] as const;
 
 /** Reading order is the `dN_` prefix, numerically. */
 export function docOrder(filename: string): number {
   const m = /^d(\d+)_/.exec(filename);
   return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
-}
-
-/**
- * Removes whole-line `[SNIPPET …]` / `[/SNIPPET]` markers.
- *
- * `stripped` is returned for the generator's fail-closed residue check ONLY. It
- * is a count of marker lines, markers are paired, and there is one marked block
- * per original ground-truth event — so this number IS the segmentation key for
- * this document. **It must not reach the packet, the generator's stdout, or any
- * file a labeler can open.** See the count invariant at the top of this module;
- * `lib/label-packet.test.ts` asserts it does not.
- */
-export function stripSnippetMarkers(body: string): { body: string; stripped: number } {
-  const lines = body.split("\n");
-  const kept: string[] = [];
-  let stripped = 0;
-  for (const line of lines) {
-    if (SNIPPET_MARKER.test(line.trim())) {
-      stripped++;
-      continue;
-    }
-    kept.push(line);
-  }
-  return { body: kept.join("\n"), stripped };
-}
-
-/** True if any marker vocabulary survived into `body`. Boolean, not a count:
- * the caller aborts the whole run on `true`, and a count here would be the same
- * key by another name. */
-export function hasMarkerResidue(body: string): boolean {
-  return body.split("\n").some((line) => MARKER_RESIDUE.test(line));
 }
 
 // ---------------------------------------------------------------------------
@@ -481,7 +478,7 @@ export function packetReadme(caseId: PacketCaseId, docs: PacketDoc[]): string {
   const readingOrder = docs
     .map(
       (d) =>
-        `| ${d.order} | \`docs/${d.draftFile}\` | \`"${d.sourceDocument}"\` | \`data/cases/${caseId}/docs/${d.sourceDocument}\` |`,
+        `| ${d.order} | \`data/cases/${caseId}/docs/${d.sourceDocument}\` | \`"${d.sourceDocument}"\` |`,
     )
     .join("\n");
 
@@ -505,14 +502,21 @@ Generated by \`scripts/make-label-packet.ts\` (issue #24). Working material —
 
 ## What you are doing
 
-You are writing ground-truth labels for ${caseId} **from scratch**, from the
-documents in \`docs/\` — or the equivalent PDFs the reading-order table below
-points you to, which are the same documents — and nothing else. Your labels will
-later be scored against
+You are writing ground-truth labels for ${caseId} **from scratch**, from the case
+PDFs the reading-order table below points you to — \`data/cases/${caseId}/docs/\`
+— and nothing else. Your labels will later be scored against
 the model predictions that are already cached in this repo — predictions you
 must not look at. The delta between the original labels and yours is the
 measurement; if you see either the predictions or the original labels, there is
 no measurement left to take.
+
+**This packet carries your instructions, not the documents.** It is a README, a
+blind-label template, and the reading order — nothing else. Earlier packets also
+shipped a copy of each document with the answer-key markers stripped out, and
+that copy turned out to be a second ledger: subtract it from the original and the
+difference is a fixed multiple of that document's original event count. So the
+copies are gone, and you read the PDFs in place, which is also how the labeler of
+the held-out case worked.
 
 ## Rules of this sitting
 
@@ -536,15 +540,15 @@ closed, because everything is closed.**
 **What is open — exhaustively:**
 
 - **this directory**, every file in it, including this one;
-- **\`data/cases/${caseId}/docs/*.pdf\` is permitted reading** — the PDFs in the
-  last column of the reading-order table below. They are the same documents as
-  the \`.md\` files in \`docs/\` here, and Part A's protocol, quoted verbatim,
-  tells you to open them in a PDF viewer and read each cover-to-cover. Nothing
-  else in \`data/cases/${caseId}/\` is open: its other members are the original
-  labels, the cached predictions, the model's event count and the drafts with the
-  answer key still in them, and they are one \`ls\` away from the PDFs you are
-  sent to. Listing a directory is not opening a file in it, and seeing a filename
-  is not reading it — but decide now that you are not going in there, rather than
+- **\`data/cases/${caseId}/docs/*.pdf\` is permitted reading** — the PDFs named in
+  the reading-order table below, and they are the documents themselves. Part A's
+  protocol, quoted verbatim, tells you to open them in a PDF viewer and read each
+  cover-to-cover; that is exactly what to do. Nothing else in
+  \`data/cases/${caseId}/\` is open: its other members are the original labels,
+  the cached predictions, the model's event count and the drafts with the answer
+  key still in them, and they are one \`ls\` away from the PDFs you are sent to.
+  Listing a directory is not opening a file in it, and seeing a filename is not
+  reading it — but decide now that you are not going in there, rather than
   deciding it while you are in there.
 
 **What you run — exhaustively:** \`npx tsx scripts/validate-blind-labels.ts
@@ -555,15 +559,14 @@ other command. In particular, do **not** run the extractor.
 **One sitting**, no splitting across days (protocol item 2 in Part A). Write your
 labels into \`blind_labels.json\` in this directory.
 
-**Everything you need is in this packet, and that is what makes the rule
+**Every instruction you need is in this packet, and that is what makes the rule
 liveable.** The granularity spec is in **Part D**, with the leaking passages
 removed. The labeling protocol you are working under is in **Part A**, quoted
 verbatim, and its two false instructions are corrected in **Part B**. The
-documents in \`docs/\` here are the original drafts with the \`[SNIPPET]\` marker
-lines stripped, so you have the text without the answer key laid over it; see
-"What was withheld", below. **If you find yourself needing something this packet
-does not carry, that is a defect in the packet — stop and report it. Do not go
-and look for it.**
+documents are the PDFs in the reading-order table, which the rule above opens to
+you by name. **If you find yourself needing something this packet does not carry,
+that is a defect in the packet — stop and report it. Do not go and look for
+it.**
 
 ### Why the rule is not paranoia
 
@@ -588,18 +591,16 @@ cannot be detected afterwards either.
 
 ## Reading order
 
-Read cover-to-cover, in this order, before labeling each one.
+Open each PDF in a PDF viewer and read it cover-to-cover, in this order, before
+labeling it.
 
-| # | read this | write this as \`source_document\` | equivalent PDF |
-|---|-----------|----------------------------------|----------------|
+| # | open and read this | write this as \`source_document\` |
+|---|--------------------|----------------------------------|
 ${readingOrder}
 
-The \`.md\` files here are the drafts the PDFs were exported from — same content,
-readable in an editor. The PDFs in the last column are **permitted reading**, and
-Part A's protocol tells you to work from them in a PDF viewer; if you have no
-positive reason to prefer the editor, prefer the PDFs. They are identical in
-substance either way. Only \`.pdf\` files under \`data/cases/${caseId}/docs/\` are
-open — everything else in that directory is closed by the rules above.
+That table is the manifest: those files, that order, nothing else. Only \`.pdf\`
+files under \`data/cases/${caseId}/docs/\` are open — everything else in that
+directory is closed by the rules above.
 
 **Write \`source_document\` exactly as shown, with the \`.pdf\` suffix.** This is
 not cosmetic: the matcher's same-document tie-break compares that string, so a
@@ -699,21 +700,27 @@ Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
   several marked blocks have no prediction snippet, and rather more prediction
   snippets have no marked block. What the markers actually track is the
   **original labels** — the more damaging of the two, which is why the wrong
-  description is worth correcting rather than dropping.) The \`docs/\` copies
-  here read exactly the way the PDF the model saw does — checked directly:
-  \`pdftotext\` extracts a clean text layer from every dev PDF and finds **zero**
-  marker lines in any of them. The snippet sentences themselves are untouched —
-  they are part of the document. **This is what the \`source_drafts/\` entry in
-  the list above is for:** stripping the markers from your copies achieves
-  nothing if you go read the originals.
-- **How many marker lines were stripped from each document.** The markers are
-  **paired**, so a per-document count halves straight into that document's
-  original event count and the sum halves into the case total. Earlier packets
-  printed exactly that number in every document header and again in the
-  generator's closing summary, which handed over the segmentation key this
-  packet is built to withhold. No count, no total, and no bound on either appears
-  anywhere in this packet or in the generator's output. If you find one, the
-  packet is defective — stop and report it rather than labeling against it.
+  description is worth correcting rather than dropping.) The PDFs you are sent to
+  do not carry them — checked directly: \`pdftotext\` extracts a clean text layer
+  from every dev PDF and finds **zero** marker lines in any of them. The snippet
+  sentences themselves are untouched; they are part of the document. **This is
+  what the \`source_drafts/\` entry in the list above is for:** the markers exist
+  only there, and that is why it is closed.
+- **Any copy of any document, and anything else derived from those drafts.**
+  This packet contains none, and that is a change from earlier packets, which
+  shipped a marker-stripped \`.md\` copy of each document. A copy is a **second
+  ledger**: the marker pair is a fixed number of bytes, so the difference between
+  a draft's size and its copy's size is that document's original event count
+  times a constant — and the constant falls out of the sizes themselves without
+  anyone knowing the marker text. The same is true of line counts, whitespace,
+  structure and checksums; every observable of a derived copy tracks how much was
+  removed from it. Withholding the count while shipping the copy was
+  patch-by-patch, and each patch closed one observable. **So no artifact in this
+  packet is derived from the drafts at all** — the packet is a README, a template
+  and a list of filenames, and the documents are read in place.
+  No count, no total, and no bound on either appears anywhere in this packet or
+  in the generator's output. If you find one, the packet is defective — stop and
+  report it rather than labeling against it.
 - **\`source_drafts/README.md\`**, which names a deliberate contradiction planted
   between two of the documents.
 - **\`metadata.json\`**, which records how many events the model emitted.
@@ -743,33 +750,4 @@ ${granularitySection()}
 Only after all packets are labeled and validated:
 \`npx tsx scripts/compare-relabel.ts\`.
 `;
-}
-
-/**
- * The per-document provenance header.
- *
- * The only integers here are `doc.order` and `total` — the document's position
- * in the reading order and the number of documents in the packet. Both are
- * counts of files the labeler is holding, visible from `ls`, and neither is
- * derived from the labels.
- *
- * This header used to carry the stripped-marker count on the line immediately
- * below the `source_document` value the labeler must copy — i.e. the
- * segmentation key, in mandatory reading, in exactly invertible form. It does
- * not any more, and nothing that could substitute for it may be added:
- * not a block count, not a "before" line count, not a per-document flag that is
- * only present when a document had markers. The provenance claim that is worth
- * making — markers were removed, everything else is verbatim — is a statement
- * about kind, and carries no quantity.
- */
-export function packetDocFile(caseId: PacketCaseId, doc: PacketDoc, total: number): string {
-  const header = [
-    `<!-- ${caseId} · document ${doc.order} of ${total}`,
-    `     source_document value to use in blind_labels.json: "${doc.sourceDocument}"`,
-    `     equivalent PDF: data/cases/${caseId}/docs/${doc.sourceDocument}`,
-    `     copied from data/cases/${caseId}/source_drafts/${doc.draftFile}`,
-    `     [SNIPPET] marker lines removed; document text is otherwise verbatim -->`,
-    "",
-  ].join("\n");
-  return header + doc.body;
 }
