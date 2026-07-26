@@ -25,9 +25,12 @@
  * every run, so the printed ledger is the complete list.
  *
  * That is checkable rather than asserted: grepping this file for
- * `readFileSync|readdirSync|readFile|createReadStream|openSync` returns four
- * lines — the `node:fs` import, plus exactly three call sites, one inside each
- * of those three functions and nowhere else.
+ * `readFileSync|readdirSync|readFile|createReadStream|openSync` returns five
+ * lines — THIS sentence, which names the patterns and so matches itself; the
+ * `node:fs` import; and exactly three call sites, one inside each of those three
+ * functions and nowhere else. (It returned four before 2026-07-26, which was
+ * wrong by one for the same self-matching reason: the count never included this
+ * line. Prose that states its own grep result has to count itself.)
  *
  * The denylist covers `held_out/**`, `ground_truth.json`, `events.json`,
  * `data/eval_reports/**`, `data/case3_eval_fallback.json`, `metadata.json`
@@ -61,11 +64,16 @@
  *     the right mitigation; only its stated rationale was wrong, and wrong in
  *     the direction that made the leak sound smaller than it is.
  *
- *     The print-ready HTML the PDFs were exported from carries no markers
- *     either, so stripping makes the packet read like the PDF the model
- *     actually saw. The snippet TEXT itself stays verbatim — it is part of the
- *     document. Because the ORIGINALS still carry the key, the packet README
- *     puts `data/cases/<case>/source_drafts/` on the forbidden list.
+ *     Stripping makes the packet read like the PDF the model actually saw, and
+ *     that is now checked DIRECTLY rather than inferred: `pdftotext` extracts a
+ *     clean text layer from all 13 dev PDFs (case1 7, case2 6; ~11.5k non-
+ *     whitespace characters each case) and finds ZERO marker lines in any of
+ *     them. That supersedes the earlier argument from the print-ready HTML
+ *     twins, which reached the same conclusion one step removed — the twins are
+ *     what the PDFs were exported from, whereas this reads the PDFs themselves.
+ *     The snippet TEXT itself stays verbatim — it is part of the document.
+ *     Because the ORIGINALS still carry the key, the packet README puts
+ *     `data/cases/<case>/source_drafts/` on the forbidden list.
  *   - `source_drafts/README.md`, which names the planted d3-vs-d5 contradiction.
  *   - Any target event count. §5's checklist carries one; it is an anchor, and
  *     handing it to a blind labeler contaminates the count comparison. It is
@@ -88,6 +96,7 @@ import { createHash } from "node:crypto";
 import { join, resolve, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EventTypeSchema, DateConfidenceSchema } from "../lib/schema";
+import { leakSources, type LeakSource } from "../lib/label-leak-sources";
 
 const TAG = "[label-packet]";
 
@@ -142,79 +151,59 @@ const DENY_PATTERNS: Array<{ re: RegExp; why: string }> = [
   { re: /(^|\/)metadata\.json$/, why: "carries the model's event COUNT for the case" },
 ];
 
-/** The HUMAN-side counterpart to DENY_PATTERNS above.
+/** THE HUMAN-SIDE FORBIDDEN LIST NOW LIVES IN `lib/label-leak-sources.ts`.
  *
- * The generator is structurally blind: not one of these paths is on the
- * allowlist, several are on the denylist, and no byte of any of them can reach a
- * packet. That does nothing about the actual risk, which is that a human
- * labeling inside this checkout can open any of them in one keystroke. **Tooling
- * blindness is not protocol blindness**, and a packet generator is the last
- * moment anyone is paying attention before the sitting starts.
+ * It used to be a local array here. It is shared because
+ * `scripts/check-label-leaks.ts` greps every tracked file for verbatim original
+ * ground-truth titles and fails on any hit that is not on this list — and a gate
+ * that checks a DIFFERENT list from the one the packet prints is not a gate.
+ * Adding an entry there updates the packet README, the handover banner below and
+ * that gate in one edit. See Amendment 2 of docs/PREREG-24-blind-relabel.md for
+ * why the list stopped being maintainable by hand.
  *
- * Checked for EXISTENCE ONLY — `existsSync`, never a read — so the read-call-site
- * audit property stated at the top of this file is unaffected: this block adds no
- * reader, and none of these paths is ever opened by this script.
+ * It is the HUMAN-side counterpart to DENY_PATTERNS above. The generator is
+ * structurally blind: not one of these paths is on the allowlist, several are on
+ * the denylist, and no byte of any of them can reach a packet. That does nothing
+ * about the actual risk, which is that a human labeling inside this checkout can
+ * open any of them in one keystroke. **Tooling blindness is not protocol
+ * blindness**, and a packet generator is the last moment anyone is paying
+ * attention before the sitting starts.
  *
- * `why` is specific and quantified wherever it can be. "Contains some titles"
- * is the kind of reason that invites a labeler to decide an item looks
- * harmless. */
-interface LeakSource {
-  path: string; // repo-relative; a trailing "/" means the whole directory
-  why: string;
-}
+ * Checked here for EXISTENCE ONLY — `existsSync`, never a read — so the
+ * read-call-site audit property stated at the top of this file is unaffected:
+ * importing that list adds no reader, and none of these paths is ever opened by
+ * this script. */
 
-function leakSources(cases: CaseId[]): LeakSource[] {
-  return [
-    {
-      path: "MOCK_DATA.md",
-      why: 'COMPLETE ANSWER KEY — every original ground-truth event for both cases, verbatim, in `"title": "…"` JSON form. Its own header states it is the basis for those labels.',
-    },
-    {
-      path: "lib/fixtures.ts",
-      why: "the same complete answer key, mirrored verbatim into code (its header says so).",
-    },
-    {
-      path: "STATE.md",
-      why: "session log — quotes original ground-truth titles AND model-predicted titles in passing, scattered through a very large file. No section of it is safe to skim.",
-    },
-    {
-      path: "prompts/",
-      why: "WHOLE DIRECTORY, every file, including any added later — versioning notes quote original ground-truth titles for these cases, and the per-type Title templates ARE the phrasing the model was tuned to produce.",
-    },
-    {
-      path: "lib/claude.ts",
-      why: "carries those same per-type Title templates, with worked examples, in code.",
-    },
-    {
-      path: "docs/EVAL.md",
-      why: "§7 quotes original labels and predictions verbatim. Everything you need from it is inlined in the packet, so there is no reason to open it at all.",
-    },
-    ...cases.map((c) => ({
-      path: `data/cases/${c}/source_drafts/`,
-      why: "your packet documents WITH the [SNIPPET] answer key still in them — exactly one marked block per original ground-truth event.",
-    })),
-    ...cases.map((c) => ({
-      path: `data/cases/${c}/`,
-      why: "events.json (cached predictions), ground_truth.json (the original labels), metadata.json (the model's event count).",
-    })),
-  ];
+/** A wildcard entry (`lib/*.test.ts`) names a CLASS of files, not a file, so
+ * `existsSync` on it is always false and would demote the most future-proof
+ * rules to a "not present in this checkout" footnote. A class rule does not go
+ * stale because one member is missing, so wildcard entries are always reported
+ * as present.
+ *
+ * Enumerating a wildcard's members would need a directory listing, adding a
+ * fourth read call site and breaking the audit property stated at the top of
+ * this file for a cosmetic gain. `scripts/check-label-leaks.ts` enumerates them
+ * instead — it is allowed to read, and its whole job is to. */
+function leakSourcePresent(s: LeakSource): boolean {
+  return s.path.includes("*") || existsSync(resolve(REPO_ROOT, s.path));
 }
 
 /** Printed at the END of every run — the moment the packet is handed over. */
 function reportLeakSources(cases: CaseId[]): void {
   const sources = leakSources(cases);
-  const present = sources.filter((s) => existsSync(resolve(REPO_ROOT, s.path)));
-  const absent = sources.filter((s) => !existsSync(resolve(REPO_ROOT, s.path)));
+  const present = sources.filter(leakSourcePresent);
+  const absent = sources.filter((s) => !leakSourcePresent(s));
 
   console.log("");
   console.log("=".repeat(96));
   console.log(`${TAG} BEFORE YOU LABEL — your PACKET is blind. This REPOSITORY is not.`);
   console.log("=".repeat(96));
   console.log("  This generator cannot read any path below, and no byte of any of them is in your");
-  console.log("  packet. It also cannot stop you opening one. Each carries, verbatim, original");
-  console.log("  ground-truth titles or model-predicted titles for these cases — and title");
-  console.log("  phrasing is the single quantity this experiment exists to measure. There is no");
-  console.log("  partial contamination: one line read is the measurement gone.");
+  console.log("  packet. It also cannot stop you opening one. Each carries the original");
+  console.log("  ground-truth titles for these cases, the model's predicted titles, or the event");
+  console.log("  count and segmentation the labels were written at — and title phrasing is the");
+  console.log("  single quantity this experiment exists to measure. There is no partial");
+  console.log("  contamination: one line read is the measurement gone.");
   console.log("");
   for (const s of present) {
     console.log(`  DO NOT OPEN   ${s.path}`);
@@ -227,10 +216,13 @@ function reportLeakSources(cases: CaseId[]): void {
       .join(", ")}`);
   }
   console.log("");
-  console.log("  The same list, with the same reasons, is the numbered rule block at the top of");
-  console.log("  every packet README. If you catch yourself weighing whether some OTHER file is");
-  console.log("  safe, apply the test directly: does it quote a title for one of these two cases?");
-  console.log("  If you cannot answer that without opening it, do not open it.");
+  console.log("  This list is lib/label-leak-sources.ts, the same array the packet README renders");
+  console.log("  and `npx tsx scripts/check-label-leaks.ts` enforces — that gate greps every");
+  console.log("  tracked file for verbatim original titles and fails on any hit not listed above.");
+  console.log("  It cannot see paraphrase, and it cannot see count or granularity leaks, so if you");
+  console.log("  catch yourself weighing whether some OTHER file is safe, apply the test directly:");
+  console.log("  does it quote a title, a prediction, or an event count for one of these two");
+  console.log("  cases? If you cannot answer that without opening it, do not open it.");
 }
 
 function repoRel(abs: string): string {
@@ -654,6 +646,15 @@ function packetReadme(caseId: CaseId, docs: PacketDoc[]): string {
     )
     .join("\n");
 
+  // Rendered from lib/label-leak-sources.ts rather than restated in prose, so
+  // the README, the handover banner and scripts/check-label-leaks.ts cannot
+  // disagree about what "forbidden" means. Only THIS case's data paths are
+  // listed; the other dev case is not part of this packet's sitting.
+  const forbidden = leakSources([caseId]);
+  const forbiddenRules = forbidden
+    .map((s, i) => `${i + 1}. \`${s.path}\` — ${s.why}`)
+    .join("\n");
+
   return `# Blind labeling packet — ${caseId}
 
 Generated by \`scripts/make-label-packet.ts\` (issue #24). Working material —
@@ -675,56 +676,44 @@ wrote these files cannot read any of the paths below — they are off its
 allowlist, several are on its denylist, and no byte of any of them is in this
 packet. It cannot stop *you* opening them.
 
-Every path in rules 1–6 is forbidden for one reason: it contains, **verbatim**,
-either the original ground-truth titles for these cases or the model's predicted
-titles. Title phrasing is the single quantity this experiment measures. There is
-no partial contamination — one line read is the measurement gone, and the only
-honest thing left to do would be to say so and abandon the sitting.
+Every path in rules 1–${forbidden.length} is forbidden for one reason: it carries, **verbatim**,
+the original ground-truth titles for these cases, the model's predicted titles,
+or the event count and segmentation those labels were written at. Title phrasing
+is the single quantity this experiment measures. There is no partial
+contamination — one line read is the measurement gone, and the only honest thing
+left to do would be to say so and abandon the sitting.
 
-1. **\`MOCK_DATA.md\`, at the repository root. This is the one that matters
-   most.** It carries **every one of the original ground-truth events for both
-   cases**, verbatim, in \`"title": "…"\` JSON form, and its own header states it
-   is the basis for those labels. It is a **complete answer key**, sitting in
-   plain sight at the top level of the repo. \`lib/fixtures.ts\` mirrors the same
-   content into code and is equally disqualifying. Do not open either, for any
-   reason, including to check something unrelated.
-2. **\`STATE.md\`.** The session log. It quotes original ground-truth titles and
-   model-predicted titles in passing, scattered through a very large file. There
-   is no section of it that is safe to skim during this sitting.
-3. Do **not** open \`data/cases/${caseId}/events.json\` (cached predictions),
-   \`data/cases/${caseId}/ground_truth.json\` (the original labels),
-   \`data/cases/${caseId}/metadata.json\` (the model's event count),
-   \`data/eval_reports/\`, or \`data/case3_eval_fallback.json\`. Do not run the
-   extractor.
-4. Do **not** open **anything under \`prompts/\`** — the whole directory, every
-   file in it, including files added after this packet was generated. Its
-   versioning notes quote original ground-truth titles for these cases verbatim,
-   and its per-type "Title" templates **are** the phrasing the model was tuned
-   to produce; copying them is the co-phrasing this experiment measures.
-   \`lib/claude.ts\` carries those same templates in code and is out for the same
-   reason. **Part D below reproduces the granularity rules you actually need**,
-   with the leaking passages removed.
-5. Do **not** open \`data/cases/${caseId}/source_drafts/\`. Those are the same
-   documents you have in \`docs/\` here, but **with the answer key still in
-   them**: they carry \`[SNIPPET]\` marker lines, exactly one marked block per
-   original ground-truth event. Read the copies in this packet, which have the
-   markers removed. See "What was withheld", below.
-6. Do **not** read \`docs/EVAL.md\` §7 during the sitting. It quotes original
-   labels and predictions verbatim. Everything from it you need is inlined below,
-   so there is no reason to open the file at all.
-7. Do **not** open anything under \`held_out/\`. That budget is terminal
-   (\`docs/RESOLVED-DECISIONS.md\` #10) and this experiment exists specifically so
-   it does not have to be spent.
-8. One sitting, no splitting across days (protocol item 2 below).
-9. Write into \`blind_labels.json\` in this directory. When you are done:
+**Do not open any of these, for any reason, including to check something
+unrelated.** They are ordered by how much damage each does.
+
+${forbiddenRules}
+${forbidden.length + 1}. One sitting, no splitting across days (protocol item 2 below).
+${forbidden.length + 2}. Write into \`blind_labels.json\` in this directory. When you are done:
    \`npx tsx scripts/validate-blind-labels.ts ${caseId}\`.
 
-Rules 1–6 are a list of the paths that leak **today**. Treat the list as
-examples of a rule, not as the rule itself. The rule is: **does this file quote a
-title for one of these two cases?** If you cannot answer that without opening the
-file, you do not get to open it — pause and ask. A paused sitting can be
-resumed; a contaminated one cannot be repaired, and cannot be detected
-afterwards either.
+Also: do **not** run the extractor.
+
+**Where to get what those files would have given you.** The granularity spec is
+reproduced in **Part D** below, with the leaking passages removed — that is why
+\`prompts/\` is closed. The documents in this packet's \`docs/\` are the
+\`source_drafts/\` documents with the \`[SNIPPET]\` marker lines stripped, so you
+already have the text without the answer key; see "What was withheld", below.
+Everything you need from \`docs/EVAL.md\` §5 and §7 is inlined in Parts A and B.
+
+**This list is generated, not hand-maintained.** It comes from
+\`lib/label-leak-sources.ts\`, the same array that
+\`npx tsx scripts/check-label-leaks.ts\` enforces: that script greps every tracked
+file for verbatim original titles and **fails if it finds one outside this list**.
+It was written because the list was assembled by hand twice and each sweep missed
+files the next one found.
+
+That gate only sees **verbatim** titles. It cannot see paraphrase, and it cannot
+see count or granularity leaks. So the list above is still the paths that leak
+**today** — treat it as examples of a rule, not as the rule itself. The rule is:
+**does this file quote a title, a prediction, or an event count for one of these
+two cases?** If you cannot answer that without opening it, you do not get to open
+it — pause and ask. A paused sitting can be resumed; a contaminated one cannot be
+repaired, and cannot be detected afterwards either.
 
 ## Reading order
 
@@ -797,11 +786,11 @@ Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
   baseline this experiment measures against and must not change.
 - "Do NOT run the model first" → the model has **already** run on these
   documents; the predictions are cached in the repo. The instruction becomes:
-  do not open them. Rule 3 above lists the files.
+  do not open them. The \`data/cases/${caseId}/\` rule above covers them.
 - \`chmod 444\` / \`git hash-object\` / \`.gt_hash.lock\` → skip. Those lock a
   held-out artifact. This packet is untracked working material.
 - "the system prompt" / "the schema above" → **Part D** and the record shape
-  above. Do not go to the prompt file itself; see rule 4 and Part D.
+  above. Do not go to the prompt file itself; see the \`prompts/\` rule and Part D.
 
 ### What was withheld from this packet, and why
 
@@ -823,12 +812,13 @@ Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
   several marked blocks have no prediction snippet, and rather more prediction
   snippets have no marked block. What the markers actually track is the
   **original labels** — the more damaging of the two, which is why the wrong
-  description is worth correcting rather than dropping.) The print-ready HTML
-  the PDFs were exported from carries no markers either, so the \`docs/\` copies
-  here read exactly the way the PDF the model saw does. The snippet sentences
-  themselves are untouched — they are part of the document. **This is what rule
-  5 is for:** stripping the markers from your copies achieves nothing if you go
-  read the originals.
+  description is worth correcting rather than dropping.) The \`docs/\` copies
+  here read exactly the way the PDF the model saw does — checked directly:
+  \`pdftotext\` extracts a clean text layer from every dev PDF and finds **zero**
+  marker lines in any of them. The snippet sentences themselves are untouched —
+  they are part of the document. **This is what the \`source_drafts/\` rule is
+  for:** stripping the markers from your copies achieves nothing if you go read
+  the originals.
 - **\`source_drafts/README.md\`**, which names a deliberate contradiction planted
   between two of the documents.
 - **\`metadata.json\`**, which records how many events the model emitted.
@@ -1049,7 +1039,29 @@ function main(): void {
     console.log(`  ${r.purpose.padEnd(15)} ${String(r.bytes).padStart(7)}B  ${emitted.padEnd(11)}  ${r.path}`);
   }
   console.log("");
-  console.log(`  ${READS.length} read(s) total.`);
+  // WHAT THIS NUMBER COUNTS, stated so an auditor comparing it against an
+  // OS-level trace does not trip on the difference. It counts reads THIS SCRIPT
+  // performs through readAllowed / listAllowed / readOwnPacketFile, and nothing
+  // else. It structurally cannot count the module loader reading this file and
+  // its imports before main() runs — those are code, not repository source
+  // material, and no byte of them can reach a packet — so a syscall-level trace
+  // of the same run will always report a few more.
+  //
+  // The total also depends on prior state: a FRESH run (no label_packet/) makes
+  // 19 reads for both cases; re-running over existing packets adds one
+  // clobber-guard read per case, which is why this line prints a live count
+  // rather than a fixed number.
+  const guardReads = READS.filter((r) => r.purpose === "clobber-guard").length;
+  console.log(
+    `  ${READS.length} read(s) total by this script — ${READS.length - guardReads} of repository source material,` +
+      ` ${guardReads} clobber-guard read(s) of the packet's own blind_labels.json.`,
+  );
+  console.log(
+    `  Excludes the module loader's own reads of this script and its imports (code, not`,
+  );
+  console.log(
+    `  source material): a syscall-level trace of this run will count a few more than ${READS.length}.`,
+  );
   console.log(
     `  Not read, by explicit denylist: held_out/**, */ground_truth.json, */events.json,`,
   );

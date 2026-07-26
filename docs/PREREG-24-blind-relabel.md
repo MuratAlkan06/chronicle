@@ -251,3 +251,240 @@ amendment contains **zero results**.
 
 `lib/eval.ts` remains unmodified — sha256 `4540d12b…a09333`, 4900 bytes,
 re-verified at the time of writing and unchanged from registration.
+
+---
+---
+
+## Amendment 2 (2026-07-26)
+
+**Everything above this delimiter is unchanged.** The original pre-registration
+(sha256 `5628ef79…5416a`, 8464 bytes) is comment `5082307494`; Amendment 1 is
+comment `5082472776`. Neither has been edited. This is a third comment, later
+again. The repo copy is append-only: `git diff --numstat` on this file for this
+change shows **zero deletions**.
+
+**Amendment 1 got the direction of its own bias argument backwards.** It is
+wrong, and it is wrong *in its own favor* — it claimed a conservatism the
+restriction does not have. That is the worst direction for an error in an
+amendment to a pre-registration to run, so it is corrected here first, before
+anything else this amendment does.
+
+### 1. The correction
+
+Amendment 1 said:
+
+> the restriction cuts against the hypothesis if anything, since every file it
+> closes is one that would have pushed the labeler back toward the original
+> phrasing. That asymmetry is what distinguishes an amendment from a retro-fit,
+> and it is the only ground on which this one should be accepted.
+
+The subordinate clause is true. **The conclusion drawn from it has the wrong
+sign.**
+
+Limitation 1 above is byte-locked and governs. It establishes this chain:
+
+> exposure → *more* likely to reproduce the original phrasing → **higher**
+> overlap → a **smaller** measured drop → biased **against** the hypothesis.
+
+Amendment 1 **reduces** exposure. Run the locked chain backwards, which is the
+only thing you are allowed to do with it:
+
+> less exposure → less reproduction of the original phrasing → **lower** overlap
+> → a **larger** measured drop → biased **toward** the hypothesis.
+
+The hypothesis predicts a drop from 0.825 to ~0.60, and the `< 0.60` band is
+"Large effect". **A restriction that lowers overlap therefore makes the
+favorable outcome easier to reach, not harder.** Amendment 1 asserted the
+opposite and offered it as the sole ground for accepting itself.
+
+Worked against the `max()` denominator, on the actual dev data rather than a
+hypothetical. Take the case1 medication event for the initial prescription. Its
+original ground-truth title and the model's cached prediction for it are
+**byte-identical**: 7 tokens each under `lib/eval.ts`'s tokenizer, overlap
+**1.000**. (`b.i.d.` is three tokens, not one — the tokenizer is
+`/[a-z0-9]+/g` over the lowercased string — so any hand-count that treats a
+dotted abbreviation as one token will be wrong, and wrong low, on exactly the
+titles where this experiment bites.) A labeler with the answer key open lands at
+or near that string and the pair is a TP. A labeler without it writes the
+natural two-token form — verb plus drug name — and scores `2/7 = 0.286`, below
+the 0.5 gate, turning one TP into **one FN and one FP**. Closing the leak moves
+every such pair from the first outcome toward the second. That is a larger drop,
+which is the hypothesis's own prediction.
+
+### 2. The restriction stays, on the correct grounds
+
+**Amendment 1's act was right and its justification was wrong.** The restriction
+is not withdrawn and is not weakened. An experiment whose stated purpose is to
+measure a labeler's sensitivity to phrasing is worthless if the labeler can read
+the answers; the files Amendment 1 closed are files that hand over the answers.
+That is mandatory, not optional, and it would be mandatory even if it moved the
+result the other way.
+
+The legitimate grounds are these three, and Amendment 1 should have rested on
+them instead of on a bias-direction claim it had not checked:
+
+1. **No data exists.** `blind_labels.json` is still the pristine generated
+   template for both cases. `scripts/compare-relabel.ts` has never been run.
+   Nothing here is chosen against a number anyone has seen, because there is no
+   number.
+2. **Nothing predictive changes.** See §5 below: not one prediction, interval,
+   threshold or decision band moves.
+3. **It removes a bias source; it does not add a conservative one.** These are
+   different claims and Amendment 1 conflated them. Removing a bias that was
+   *suppressing* the predicted effect is a legitimate improvement in validity —
+   it makes the measurement more able to see what it is looking for. What is
+   *not* legitimate is to describe that as caution. A restriction that widens
+   your predicted effect has to be **declared as such and registered before the
+   data exists**, which is what this amendment does. Declared, it is an
+   amendment. Disguised as conservatism, it would be a retro-fit wearing an
+   amendment's clothes.
+
+The practical consequence for reading the result is stated in §5.
+
+### 3. A second channel Amendment 1 did not separate
+
+Amendment 1's table forbids eight sources under one heading. Six of them leak
+**phrasing**. Two do not:
+
+- **`data/cases/*/source_drafts/`** — the `[SNIPPET]` markers. Verified again for
+  this amendment: **13 marked blocks against 13 case1 ground-truth events, 8
+  against 8 in case2, zero mismatches.** That is a *segmentation* key.
+- **`data/cases/*/metadata.json`** — `eventCount`, the number of events the
+  model emitted (18 for case1, 8 for case2). That is a *count* anchor.
+
+Neither carries a title. Closing them does not lower title overlap at all. What
+it does is remove the labeler's anchor on **how many events each document is
+worth**, which is precisely the quantity the packet already withholds
+deliberately, and it lets the blind label count diverge from 13 and 8.
+
+The in-scope GT count is the FN denominator. **Limitation 3 above already names
+this as a confound the tooling reports but cannot remove.** Closing these two
+sources therefore enlarges the measured drop through that confound, on a channel
+that has nothing to do with phrasing. Amendment 1 filed them alongside the six
+phrasing leaks and said nothing about the difference.
+
+**Consequence, and it belongs with the decision rule: a measured drop must not
+be read as a pure phrasing effect.** Some part of it may be granularity
+divergence. `scripts/compare-relabel.ts` section [0] prints the in-scope counts
+for both label sets and section [4] reports the alignment residue (`orig-only` /
+`blind-only`) rather than absorbing it. **Read those two before reading the F1
+delta.** If the blind in-scope count differs materially from 13 and 8, the
+aggregate F1 delta is an upper bound on the phrasing effect, not an estimate of
+it.
+
+### 4. Eight more files, and the reason the sweep kept missing them
+
+Amendment 1's own thesis is that **naming matters**: it faulted the original
+protocol for naming `prompts/system_extract_v4.md` (4/21) while omitting
+`prompts/few_shot.md` (9/21) — for naming the smaller leak and missing the
+bigger one. **The identical failure happened one level down, in Amendment 1
+itself.** Eight further tracked files carry original ground-truth titles
+verbatim and were named nowhere. Counts re-derived for this amendment by
+matching all 21 titles against every `git ls-files` entry:
+
+| path | leaks | why it matters |
+|------|-------|----------------|
+| `app/page.tsx` | **3 / 21**, in `title: "…"` form | The **main page of the app**. A labeler working in this checkout opens it reflexively; the catch-all rule never fires because they never pause long enough to weigh it. Counting alone understates this one. |
+| `docs/CASES.md` | 2 / 21 **plus a granularity key that is worse than the `[SNIPPET]` markers in one respect** | Its per-document tables give the event count **and the event-type breakdown** for every document in both cases. Checked against the real labels: they agree on **12 of the 13 dev documents** (all 6 of case2; 6 of case1's 7 — case1's d5 is listed as 1 event where the labels have 2). The markers give segmentation but not type; this gives both. It also names **both planted cross-document contradictions** — the thing `source_drafts/README.md` was withheld for — and an **expected total event count**, which is the anchor the packet refuses to restate in any form. Its filename actively invites a labeler looking for case background. |
+| `scripts/verify-extract-route.ts` | 2 / 21, in `title: "…"` form | Original titles used as route-verification fixtures. |
+| `lib/measure.test.ts`, `lib/eval.test.ts`, `lib/claude.test.ts`, `lib/gemini.test.ts`, `lib/normalize.test.ts` | 1 / 21 each, in `title: "…"` form | 5 of the 9 files matching `lib/*.test.ts`. This repo's unit tests use real Case 1 titles as fixtures by convention, so this is a **class**, not five incidents. The rule is written as `lib/*.test.ts` and covers tests added later — the same generalization Amendment 1 applied to `prompts/`. |
+
+One precision note against Amendment 1's habit of rounding in its own favor:
+seven of the eight are in `title: "…"` form. **`docs/CASES.md`'s two are not** —
+they are cells in a markdown table. They are still verbatim, and that file is
+still the second most damaging entry in this table for the reasons above, but
+the form claim does not hold for all eight and is not asserted here as though it
+did.
+
+**All of the above are added to the binding protocol**, on the same terms as
+Amendment 1's list. Also added, because the original protocol named them in
+prose but the generator's handover banner did not print them: `held_out/` (whole
+directory), `data/eval_reports/`, and `data/case3_eval_fallback.json`.
+
+#### The sweep is now mechanical
+
+Two hand sweeps, two sets of misses. That is a property of hand sweeps, not of
+the people doing them, so the third fix is not a third sweep:
+
+- The forbidden list moves to **`lib/label-leak-sources.ts`** — one array, imported
+  by both `scripts/make-label-packet.ts` (which renders it as the packet README's
+  rule block and as the runtime `DO NOT OPEN` banner) and by the new checker.
+  The packet and the gate can no longer disagree about what "forbidden" means.
+- **`scripts/check-label-leaks.ts`** reads the 21 titles from
+  `data/cases/*/ground_truth.json`, greps every tracked file for verbatim
+  occurrences, and **exits non-zero if any hit is outside that list.** It skips
+  `held_out/**` without opening it; since `held_out/` is itself on the list, a
+  hit there would be classified as forbidden anyway, so the skip cannot produce a
+  false pass.
+- Run at the time of writing: **22 tracked files carry at least one verbatim
+  original title, and all 22 are on the forbidden list. No ninth unnamed file
+  exists.** The gate passes.
+
+**It is deliberately not wired into CI in this slice.** The reasoning is recorded
+at the bottom of the script: it gates a protocol rather than the product, it only
+binds while the sitting is pending, and a red required check whose meaning is
+"a documentation list needs a line" degrades the signal of the checks that mean
+"the product is broken". Its place is the pre-sitting step, run in the same
+breath as `make-label-packet.ts`, where a failure is on point and a human is
+present.
+
+**What the gate does not cover, stated so it is not over-trusted.** It matches
+titles **verbatim**. It cannot see paraphrase, and — directly relevant to §3 — it
+cannot see count or granularity leaks at all, because those carry no title.
+`docs/CASES.md` would have been caught by it for its 2 titles; its per-document
+event tables, which are the more damaging half, are invisible to it. A pass means
+"no unlisted verbatim title leak", never "no leak".
+
+### 5. What this amendment does not change
+
+**No prediction, no threshold, no interval and no decision band is changed by
+this amendment.** Explicitly, and all as originally registered:
+
+- Direction: macro-mean strict F1 **decreases** from **0.825** — re-derived for
+  this amendment from the cached reports: case1 0.774, case2 0.875, mean
+  **0.825**. Unchanged.
+- Point estimate **~0.60**, interval **0.50 – 0.70**. Unchanged.
+- Per-type ordering (`medication` most, `visit` least, `lab` intermediate),
+  directional only per Limitation 2. Unchanged.
+- Loss mechanism: `overlap` should dominate the attribution split. Unchanged.
+- Decision bands **< 0.60** / **0.60 – 0.75** / **> 0.75**, band governs over
+  point estimate. Unchanged.
+
+What §1 and §3 change is **how a result is to be read**, and both readings make
+the experiment harder on itself, not easier:
+
+- Because the restriction is now correctly declared as biasing **toward** the
+  hypothesis rather than against it, **a large drop is weaker evidence than
+  Amendment 1's framing implied.** Limitation 1's closing sentence — "a large
+  drop is trustworthy; a null result is weak" — was written about the
+  *contaminated* labeler and remains true for the residual contamination that
+  cannot be removed. It does not license treating the restriction's effect as
+  free. A `< 0.60` outcome still reads as "Large effect" per the registered band,
+  and the band still governs; but the write-up must state that part of the drop
+  is attributable to the amendment's own restriction and not only to natural
+  phrasing divergence.
+- Because two of the newly-forbidden sources leak count rather than phrasing,
+  **the F1 delta is an upper bound on the phrasing effect**, not a point estimate
+  of it, whenever the blind in-scope count diverges from 13 / 8.
+- A **null result remains inconclusive**, exactly as registered, and for a
+  stronger reason than before: if a restriction that should widen the effect
+  still yields no drop, the residual contamination in Limitation 1 is the first
+  explanation to rule out, not the last.
+
+### Status at the time of this amendment
+
+Registered **before any blind label exists**, exactly as the original and
+Amendment 1 were. `blind_labels.json` is still the pristine generated template
+for both cases, `scripts/compare-relabel.ts` has not been run, and this
+amendment — like both texts above it — contains **zero results**. Every number in
+it is either a figure already published in docs/EVAL.md §7, a count of files or
+markers in the repository, or a prediction restated unchanged from above.
+
+`lib/eval.ts` remains unmodified — sha256 `4540d12b…a09333`, 4900 bytes,
+re-verified at the time of writing and unchanged from registration and from
+Amendment 1.
+
+**This document still quotes no ground-truth title.** That is deliberate and is
+now enforced: `scripts/check-label-leaks.ts` would fail if it did, because
+`docs/PREREG-24-blind-relabel.md` is not on the forbidden list and must never
+need to be. The worked example in §1 is stated in token counts for that reason.

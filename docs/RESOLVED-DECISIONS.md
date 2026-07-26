@@ -222,3 +222,35 @@ Two further findings from the same review, both load-bearing:
 - **`sharp` / libvips (high) — unreachable by CONFIGURATION.** `next.config.ts` sets no `images` config, so `remotePatterns`/`domains` are empty and `/_next/image` rejects all remote URLs; `public/` holds only SVGs, which Next does not pass to sharp (`dangerouslyAllowSVG` defaults false); and the sole upload path (`app/api/extract/route.ts`) takes PDFs and writes nothing to disk. **This acceptance rests on configuration, NOT on the absence of a `next/image` import** — the `/_next/image` endpoint is served by default regardless of whether any component imports `next/image`. **Re-evaluate if `next/image` is adopted or any raster asset lands in `public/`.** A tripwire for exactly that is wired into `scripts/screenshot-app.ts`, whose default `OUT` is `public/hero-app.png` and whose end-of-run instructions point at `next/image`.
 
 Cross-reference: **STATE.md cycle 22** (measurement, verification evidence, and the falsified-hypothesis record), issue #13, and issue #14 (the `@emnapi` lockfile-drift recurrence risk surfaced by the same slice).
+
+---
+
+### 12. A pre-registration is append-only — the original comment is never edited, amendments are new comments in sequence (added 2026-07-26, STATE cycle 25)
+
+LOCKED. Applies to `docs/PREREG-24-blind-relabel.md` (issue #24) and to any pre-registration Chronicle writes afterwards.
+
+**The rule.** The pre-registered text is posted as a GitHub issue comment and **is never edited after posting**. Corrections, added restrictions and scope changes are posted as **new, later-timestamped comments** on the same issue, in sequence, and appended below a `---`/`---` delimiter in the repo copy. The repo copy is verified append-only on every change: `git diff --numstat` on the file must show **zero deletions**, and the byte prefix covering all previously-posted text must still hash to its recorded value. If the comment and the repo copy ever diverge, **the comment is the record.**
+
+**Why.** The entire value of a pre-registration is its server-assigned `created_at`. A file in the repo can be amended and force-pushed; a comment cannot be backdated, and GitHub marks edited comments. Revising in place destroys the one property that made writing it worthwhile, and it produces a document that reads as though it always said the current thing. The honest artifact is the sequence: the original still readable exactly as first posted, each amendment visibly later.
+
+**The cost is real and is accepted.** Issue #24 now carries an original (comment `5082307494`), Amendment 1 (`5082472776`), and Amendment 2 — and **Amendment 1's bias-direction argument is wrong**, inverted in its own favor, corrected only in Amendment 2. Under this rule it stays posted uncorrected. A reader who stops at Amendment 1 gets the inverted argument. That is the price of the timestamp guarantee; the mitigation is a read-them-in-order note at the top of each amendment, and it is a weaker mitigation than an edit would be. We take that trade deliberately rather than pretending it does not exist.
+
+**Verification recorded per amendment:** the prefix sha256 and byte count of everything already posted, the fact that `numstat` shows zero deletions, and — for #24 specifically — that `lib/eval.ts` is still `4540d12b…a09333` / 4900 bytes, because changing the ruler mid-measurement is the error docs/EVAL.md §7 documents.
+
+---
+
+### 13. Blind labeling has an explicit forbidden-file list, and it lives in code with a gate (added 2026-07-26, STATE cycle 25)
+
+LOCKED. **Tooling blindness is not protocol blindness.** `scripts/make-label-packet.ts` is blind by construction — explicit allowlist, explicit denylist, printed read ledger — and none of that stops a human labeling inside the checkout from opening the answer key in one keystroke. The protocol therefore carries its own list, aimed at the labeler rather than the generator.
+
+**Single source of truth: `lib/label-leak-sources.ts`.** One array. Imported by `scripts/make-label-packet.ts`, which *renders* it as the packet README's numbered rule block and as the runtime `DO NOT OPEN` banner, and by `scripts/check-label-leaks.ts`, which enforces it. Nothing restates it in prose. It lives in `lib/` rather than `scripts/` for the reason `lib/eval-gate.ts` documents: `npm test` globs `lib/*.test.ts` and nothing else, so pure logic that needs unit coverage has to be there to get any (`lib/label-leak-sources.test.ts`).
+
+**The gate: `npx tsx scripts/check-label-leaks.ts`.** Reads the 21 original Cases 1+2 ground-truth titles, greps every `git ls-files` entry for verbatim occurrences, and **exits non-zero if any hit is outside the list** — i.e. it enforces that the forbidden list is a **superset** of the hit set. It skips `held_out/**` without opening it, which is sound because `held_out/` is itself on the list, so a hit there would classify as forbidden regardless.
+
+**Why a gate rather than a third careful reading.** The list was assembled by hand twice and each sweep missed files the next one found — the original protocol named `prompts/system_extract_v4.md` (4/21) and missed `prompts/few_shot.md` (9/21), naming the smaller leak; Amendment 1 fixed that and then missed eight more files including `app/page.tsx` (3/21, the app's main page) and `docs/CASES.md` (2/21 plus a per-document event-count and type breakdown). Two hand sweeps, two sets of misses. That is a property of hand sweeps.
+
+**Not wired into CI, deliberately.** It gates a **protocol**, not the product; it only binds while a labeling sitting is pending; and a red required check whose meaning is "a documentation list needs a line" degrades the signal of the checks that mean "the product is broken". Its place is the pre-sitting step, run beside `make-label-packet.ts` where a failure is on point and a human is present. Revisit if the experiment is repeated on new cases — a non-blocking annotating job would carry most of the value.
+
+**Known limit, and it must not be over-claimed.** The gate matches titles **verbatim**. It cannot see paraphrase, and it cannot see **count or granularity** leaks — `[SNIPPET]` markers, `metadata.json`'s `eventCount`, `docs/CASES.md`'s per-document event tables — because those carry no title. Those leaks move the `in_scope` FN denominator, which is a confound the tooling reports but cannot remove. **A pass means "no unlisted verbatim title leak", never "no leak".** The rest is still judgement, which is why every entry's `why` is quantified: "contains some titles" is the kind of reason that invites a labeler to decide an item looks harmless.
+
+Cross-reference: **docs/PREREG-24-blind-relabel.md** Amendment 2 §3–§4, and **#10** (held-out budget), which every script in this toolkit cites by number in its refusal path — so entry numbering in this file is load-bearing at runtime and must not be renumbered.

@@ -88,6 +88,34 @@ npx tsx scripts/eval-case3.ts --dry-run          # list docs, no API calls
 # Prompt-caching savings report: scans persisted usage fields → tokens, %
 # served from cache, and net $ saved vs no-caching (incl. 1.25x write premium).
 npx tsx scripts/cache-report.ts
+
+# --- Blind re-labeling of Cases 1+2 (issue #24) ---------------------------
+# Measures how much of the dev↔held-out F1 gap is labeling PHRASING rather
+# than extraction quality, by re-labeling the dev cases blind to the model
+# output and rescoring the SAME cached predictions with an unmodified
+# lib/eval.ts. Costs zero Case 3 budget. Pre-registered, including the
+# predictions and decision bands, in docs/PREREG-24-blind-relabel.md.
+# Run in this order; step 4 runs ONCE — its first output is the result.
+
+# 0. Gate: does any tracked file leak an original ground-truth title to a
+#    place the protocol does not forbid? Exits non-zero if so. Run this
+#    before generating a packet — it is the pre-sitting check, not a CI job
+#    (docs/RESOLVED-DECISIONS.md #13 explains why not).
+npx tsx scripts/check-label-leaks.ts
+
+# 1. Write label_packet/<case>/ — documents with the [SNIPPET] answer key
+#    stripped, the labeling protocol, and an empty blind_labels.json.
+#    Gitignored working material. Refuses to clobber a sitting in progress.
+npx tsx scripts/make-label-packet.ts
+
+# 2. (label by hand, one sitting, per the packet README's rule block)
+
+# 3. Structural validation only — never compares against the original labels.
+npx tsx scripts/validate-blind-labels.ts
+
+# 4. Rescore cached predictions against BOTH label sets. Diagnostic, exits 0
+#    whatever it finds, reads nothing under held_out/.
+npx tsx scripts/compare-relabel.ts
 ```
 
 Extraction runs at `temperature: 0` (`lib/claude.ts`) for run-to-run stability; the N-run mean±range from `scripts/eval-case3.ts` is the primary rigor mechanism (temperature alone does not guarantee bit-exact determinism). All per-call token usage is persisted (`metadata.json` for case extractions, `eval_runs/*.json` for measurement runs) so `scripts/cache-report.ts` can account for cache hits and cost.
