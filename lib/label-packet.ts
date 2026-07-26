@@ -336,32 +336,56 @@ export function templateJson(caseId: PacketCaseId): string {
 }
 
 // ---------------------------------------------------------------------------
-// SITTING STATE — "has labeling started?", asked once and answered in one place.
+// TWO QUESTIONS ABOUT `label_packet/<case>/blind_labels.json`, ASKED ONCE EACH
+// AND ANSWERED IN ONE PLACE EACH.
 //
-// TWO guards need this question answered and they must not answer it differently:
+//     "has labeling STARTED?"   ->  sittingState
+//     "has labeling FINISHED?"  ->  labelingState
 //
-//   - `scripts/make-label-packet.ts`'s clobber guard, which refuses to overwrite
-//     anything but a pristine template, because regenerating over real labels
-//     destroys a sitting that cannot be redone.
-//   - `scripts/check-label-leaks.ts`'s sitting guard, which refuses to RUN at all
-//     while a sitting is live. That script reads `ground_truth.json` and prints
-//     per-file counts against the original labels, so it is answer-bearing by
-//     construction — and the packet README names it to the labeler. A labeler who
-//     runs it mid-sitting to "check themselves" is handed the answers by a side
-//     door (Amendment 3 §2 of docs/PREREG-24-blind-relabel.md).
+// THEY ARE NOT THE SAME QUESTION, and they diverge on exactly one state — the
+// state this packet's own checklist instructs. `packetReadme` carries the line
+// `- [ ] The template stub object is deleted.`, and the stub's own text says
+// "Delete this whole object, then add one object per event", so deleting it is
+// where a labeler BEGINS. A file reduced to `"events": []` with all three header
+// placeholders untouched has STARTED (it is no longer the bytes the generator
+// wrote) and has labeled NOTHING.
 //
-// Two implementations of one predicate is two things to drift, and drift here is
-// silent: a clobber guard that thinks a file is edited while a leak gate thinks
-// it is pristine leaves the gate open during exactly the window it exists to
-// close. So the test lives here, once.
+// Three guards consume these, and which question each needs is not a matter of
+// taste:
+//
+//   - `scripts/make-label-packet.ts`'s clobber guard — STARTED. It refuses to
+//     overwrite anything but a pristine template, because regenerating over real
+//     labels destroys a sitting that cannot be redone. A file a labeler has
+//     touched at all is a file it must not write, however little is in it.
+//   - `scripts/check-label-leaks.ts`'s sitting guard — STARTED. It refuses to RUN
+//     at all while a sitting is live. That script reads `ground_truth.json` and
+//     prints per-file counts against the original labels, so it is answer-bearing
+//     by construction — and the packet README named it to the labeler. A labeler
+//     who runs it mid-sitting to "check themselves" is handed the answers by a
+//     side door (Amendment 3 §2 of docs/PREREG-24-blind-relabel.md). The window
+//     to close opens the moment labeling begins.
+//   - `scripts/compare-relabel.ts`'s not-yet-run gate — FINISHED. It reports one
+//     case's original event count and per-type breakdown, and must not do so
+//     while ANY packet is still ahead of the labeler. "Still ahead of them" is
+//     not "untouched": a case they opened, emptied and left is still ahead of
+//     them, and that gate asked the STARTED question until 2026-07-26 and opened
+//     on exactly that file.
+//
+// Two implementations of one question is two things to drift, and drift here is
+// silent. But so is answering one question with the other's predicate, which is
+// the failure above and is not visible at the call site unless the two are named
+// apart. So both live here, named for what they ask, and a guard picks one
+// deliberately.
+// ---------------------------------------------------------------------------
+
+// --- "has labeling STARTED?" ------------------------------------------------
 //
 // The test is BYTE-EQUALITY against the template this repo would generate for
 // that case. Not a JSON parse, not a stub-key probe: any edit at all — a deleted
 // stub, a reordered key, a single typed character — is a sitting that has begun,
 // and byte-equality is the only test that cannot be argued with. It is also
-// conservative in the safe direction, since every failure mode reports "started"
-// rather than "pristine".
-// ---------------------------------------------------------------------------
+// conservative in the safe direction for its two consumers, since every failure
+// mode reports "started" rather than "pristine".
 
 /** What `label_packet/<case>/blind_labels.json` says about the sitting. */
 export type SittingState =
@@ -387,6 +411,94 @@ export function sittingState(
   if (contents === undefined) return "absent";
   if (caseId === undefined) return "in-progress";
   return contents === templateJson(caseId) ? "pristine" : "in-progress";
+}
+
+// --- "has labeling FINISHED?" -----------------------------------------------
+//
+// Byte-equality cannot answer this one: the labeler's first instructed act
+// changes the bytes and labels nothing. This test is on CONTENT, and it is the
+// packet checklist's own items rather than a new rule invented here —
+//
+//     - [ ] `patient`, `labeled_at` and `labeler_notes` no longer hold
+//           placeholders.
+//     - [ ] The template stub object is deleted.
+//
+// — plus the empty-`events` state those two leave behind. `scripts/validate-
+// blind-labels.ts` refuses on the same three conditions, which is the point:
+// the rescorer's precondition is now the one the labeler was already told is
+// the precondition, instead of an unenforced ordering between two scripts.
+//
+// WHAT THIS CANNOT DECIDE, stated rather than implied. "Unlabeled" is decidable;
+// "finished" is not. Three of a labeler's twelve events, written and saved, is a
+// file with events, no placeholder and no stub — indistinguishable from a
+// completed one, here or anywhere else. The claim this predicate supports is the
+// narrow one, and callers must not restate it as the broad one.
+
+/** The three header fields `templateJson` fills with a placeholder, paired with
+ * the placeholder it writes into each. Named fields rather than a scan of the
+ * whole file: this is the same triple `scripts/validate-blind-labels.ts` refuses
+ * on, and the two agreeing is the property worth having. */
+const HEADER_PLACEHOLDERS: ReadonlyArray<readonly [field: string, placeholder: string]> = [
+  ["patient", PLACEHOLDER_PATIENT],
+  ["labeled_at", PLACEHOLDER_LABELED_AT],
+  ["labeler_notes", PLACEHOLDER_NOTES],
+];
+
+/** What `label_packet/<case>/blind_labels.json` says about whether labeling has
+ * finished. */
+export type LabelingState =
+  /** No such file — the packet has not been generated, or was moved aside. */
+  | "absent"
+  /** Present, and nothing has been labeled into it: no events, or a header
+   * placeholder still standing, or the template stub object still there. */
+  | "unlabeled"
+  /** Present, but not a JSON object with an `events` array — so this predicate
+   * has no basis to answer, and says so rather than guessing. Callers must not
+   * fold it into `unlabeled`: a corrupt file reported as an unlabeled template
+   * is a wrong answer, and the caller has a schema check that can say what is
+   * actually wrong with it. */
+  | "unreadable"
+  /** Has at least one event, no header placeholder and no stub. NOT a claim that
+   * the file is valid, and NOT a claim that the labeler is done — only that
+   * labeling has been done into it. Validity is the caller's schema check. */
+  | "labeled";
+
+/**
+ * Answers "has labeling finished?" from the file's CONTENT.
+ *
+ * Takes no `caseId`, unlike {@link sittingState}: there is no template to
+ * compare against here, and which case a file belongs to does not change whether
+ * it holds labels. `undefined` contents mean the file is not there.
+ */
+export function labelingState(contents: string | undefined): LabelingState {
+  if (contents === undefined) return "absent";
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch {
+    return "unreadable";
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return "unreadable";
+  const file = parsed as Record<string, unknown>;
+
+  // `includes`, not `===`: a placeholder with an edit around it is still a
+  // placeholder, and "unlabeled" is this gate's safe direction.
+  for (const [field, placeholder] of HEADER_PLACEHOLDERS) {
+    const v = file[field];
+    if (typeof v === "string" && v.includes(placeholder)) return "unlabeled";
+  }
+
+  const events = file.events;
+  if (!Array.isArray(events)) return "unreadable";
+  if (events.length === 0) return "unlabeled";
+  for (const e of events) {
+    if (e !== null && typeof e === "object" && STUB_KEY in (e as Record<string, unknown>)) {
+      return "unlabeled";
+    }
+  }
+
+  return "labeled";
 }
 
 /** A packet subdirectory name, if it names a case this repo labels. Used to map

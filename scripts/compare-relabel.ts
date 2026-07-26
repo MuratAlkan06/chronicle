@@ -25,8 +25,8 @@
  * been run, which is not an error.
  *
  * ---------------------------------------------------------------------------
- * IT REPORTS NOTHING UNTIL **EVERY** PACKET IS LABELED, WHICHEVER CASES YOU ASK
- * FOR. That is a leak control, not a convenience, and it is the last of the
+ * IT REPORTS NOTHING WHILE ANY PACKET IS STILL UNLABELED, WHICHEVER CASES YOU
+ * ASK FOR. That is a leak control, not a convenience, and it is the last of the
  * answer-bearing tools in this toolkit to get one.
  *
  * This script IS the anchor the packet is built to withhold. Section [0] prints
@@ -47,19 +47,62 @@
  * So the not-yet-run gate in `main` is evaluated over ALL_CASES regardless of
  * which cases were requested, and every case is LOADED (its blind labels
  * schema-checked) even when only one is reported on — a half-written label file
- * in a case you did not ask for is refused rather than skipped. The "has
- * labeling started?" test is `sittingState` from lib/label-packet.ts, the same
- * predicate the generator's clobber guard and `scripts/check-label-leaks.ts`'s
- * sitting guard use, rather than a fourth local implementation of it.
+ * in a case you did not ask for is refused, by the gate or by the schema check,
+ * rather than skipped.
+ *
+ * THE GATE ASKS "HAS LABELING FINISHED?", NOT "HAS IT STARTED?", and that
+ * distinction IS the control. It is `labelingState` from lib/label-packet.ts: a
+ * case is UNLABELED while its file holds zero events, still carries one of the
+ * template's three header placeholders, or still carries the template stub
+ * object. Those are the packet README's own checklist items, so this gate's
+ * precondition is the one the labeler was already told is the precondition, and
+ * `scripts/validate-blind-labels.ts` refuses on the same three conditions.
+ *
+ * It used to ask `sittingState` — "do these bytes differ from the generated
+ * template?" — which is the question the toolkit's two OTHER guards correctly
+ * want, since neither may clobber nor run beside a sitting that has BEGUN. The
+ * two questions diverge on one state, and it is the one the packet checklist
+ * instructs — `- [ ] The template stub object is deleted.`, where the stub's own
+ * text says "Delete this whole object, then add one object per event", so
+ * deleting it is where a labeler BEGINS rather than where they finish. A file
+ * reduced to `"events": []` with all three placeholders untouched — zero
+ * labeling done, and refused by validate-blind-labels.ts — is no longer
+ * byte-identical to the template, so the old gate opened and printed the other
+ * case's full report. Both questions now live in lib/label-packet.ts, named
+ * apart, so a guard picks one deliberately instead of inheriting the other's.
+ *
+ * WHAT THE GATE STILL CANNOT SEE, stated because the sentence this replaces
+ * ("until EVERY packet is LABELED") overclaimed it. "Unlabeled" is decidable;
+ * "finished" is not. A file holding three of a labeler's twelve events is
+ * schema-valid, holds no placeholder and no stub, and is indistinguishable from
+ * a completed one — this gate passes it, and no predicate over that file could
+ * do otherwise. The claim is therefore the narrow one: no packet is still
+ * UNLABELED. A file that exists but does not parse is not waved through either,
+ * and is not called a template: it reaches `loadCase`, which exits 1 naming the
+ * parse error.
  *
  * THERE IS NO `--sitting-over`-STYLE OVERRIDE, and the asymmetry with
- * `scripts/check-label-leaks.ts` is deliberate. That gate needs one because its
- * refusal never clears on its own: this script writes no artifact, so nothing on
- * disk can ever tell it the sitting is over, and without a flag its legitimate
- * post-sitting run would be blocked forever. This gate is SELF-CLEARING — the
- * moment every packet is labeled it opens, which is exactly when the legitimate
- * per-case re-run happens. An override here would buy no legitimate use and
- * would hand a curious labeler the one affordance the guard exists to remove.
+ * `scripts/check-label-leaks.ts` is deliberate — but narrower than this header
+ * used to claim. That gate needs a flag because its refusal never clears on its
+ * own: this script writes no artifact, so nothing on disk can ever tell it the
+ * sitting is over, and without a flag its legitimate post-sitting run would be
+ * blocked forever. This gate clears itself the moment no packet is unlabeled,
+ * which is exactly when the legitimate per-case re-run happens.
+ *
+ * SELF-CLEARING IS TRUE IN THE FORWARD DIRECTION ONLY. That is a residual, not
+ * a proof, and it is recorded here rather than argued away. Two states it does
+ * not clear: a sitting ABANDONED before every packet is labeled, and a
+ * `blind_labels.json` lost or moved aside AFTER the sitting. In both, blindness
+ * is already moot for the case that WAS labeled while rescoring it is still
+ * legitimate — and the gate stays shut. The recovery is to restore or finish the
+ * missing file. A fabricated schema-valid stand-in would also open it, which is
+ * an override with more steps and NO audit trail, where check-label-leaks.ts at
+ * least prints `OVERRIDDEN by --sitting-over`. A flag was weighed and refused:
+ * this script prints the anchor itself, so a documented one-flag unlock on it is
+ * precisely the affordance the guard exists to remove, and the states that would
+ * need it are rare, operator-visible and recoverable by putting the missing
+ * labels back. If they stop being rare, add the flag and log it as loudly as the
+ * sibling does — do not reintroduce the claim that they cannot happen.
  * ---------------------------------------------------------------------------
  *
  * READ THIS BEFORE READING ITS NUMBERS — three confounds it reports rather than
@@ -95,7 +138,7 @@ import {
   type TierResult,
 } from "../lib/eval";
 import { normalize } from "../lib/normalize";
-import { sittingState } from "../lib/label-packet";
+import { labelingState } from "../lib/label-packet";
 import {
   CaseFixtureSchema,
   EventTypeSchema,
@@ -223,16 +266,22 @@ function loadJson(path: string): unknown {
 /**
  * A file's contents, or `undefined` when there is nothing readable there.
  *
- * `undefined` is what `sittingState` reads as "absent", and an unreadable file
- * is deliberately reported the same way: this gate has no basis on which to call
- * such a file labeled, and the safe landing state is "not yet".
+ * `undefined` is what `labelingState` reads as "absent", and a file that cannot
+ * be READ at all (permissions, a directory in its place) is deliberately
+ * reported the same way: this gate has no basis on which to call such a file
+ * labeled, and the safe landing state is "not yet".
  *
- * This exists so the gate can use the SHARED pristine test. It replaced a local
- * stub-key probe, which was a second implementation of "has labeling started?"
- * and could be argued with — a labeler who deletes the stub object and stops
- * looks labeled to it. `sittingState` compares against the exact bytes this repo
- * would generate for that case, which is the test the generator's clobber guard
- * and `scripts/check-label-leaks.ts`'s sitting guard already answer with.
+ * A file that reads but does not PARSE is a different thing and is not folded in
+ * here. `labelingState` returns "unreadable" for it, and the gate hands it to
+ * `loadCase` — which exits 1 naming the parse error — rather than reporting a
+ * corrupt file as an unlabeled template it is not.
+ *
+ * This exists so the gate can use the SHARED predicate rather than a local
+ * re-implementation. The one it replaced was a stub-key probe, which a labeler
+ * who deleted the stub object and stopped looked labeled to; the byte-equality
+ * `sittingState` that replaced THAT had the same hole for the same file, because
+ * it answers a different question (see the header, and the note above both
+ * predicates in lib/label-packet.ts).
  */
 function readIfPossible(path: string): string | undefined {
   try {
@@ -954,16 +1003,19 @@ function main(): void {
   const unlabeled: string[] = [];
   for (const caseId of ALL_CASES) {
     const p = join(packetRoot, caseId, "blind_labels.json");
-    const state = sittingState(readIfPossible(p), caseId);
+    const state = labelingState(readIfPossible(p));
     if (state === "absent") missing.push(p);
-    else if (state === "pristine") unlabeled.push(p);
+    else if (state === "unlabeled") unlabeled.push(p);
+    // "unreadable" and "labeled" both fall through to loadCase below: the first
+    // so that it gets its own parse error instead of being called a template,
+    // the second because that is the state this gate opens on.
   }
   if (missing.length > 0 || unlabeled.length > 0) {
     console.log(rule("="));
     console.log(`${TAG} nothing to compare yet — the blind relabeling has not been done`);
     console.log(rule("="));
     for (const p of missing) console.log(`  no blind labels at   ${p}`);
-    for (const p of unlabeled) console.log(`  still the template   ${p}`);
+    for (const p of unlabeled) console.log(`  not labeled yet      ${p}`);
     console.log("");
     console.log(
       `  Checked over EVERY case (${ALL_CASES.join(", ")}), whichever ones you asked for. A`,
@@ -971,7 +1023,13 @@ function main(): void {
     console.log("  single-case run while another packet is still unlabeled would print that case's");
     console.log("  event counts and per-type breakdown — the anchor the packet exists to withhold");
     console.log("  — to a labeler who has the other case still ahead of them. So nothing is");
-    console.log("  reported until every packet is labeled.");
+    console.log("  reported while any packet is still unlabeled.");
+    console.log("");
+    console.log("  'not labeled yet' means the file holds no events, or still carries one of the");
+    console.log("  template's REPLACE_WITH_... placeholders, or still carries its stub object —");
+    console.log("  the packet checklist's own items. Deleting the stub is where labeling STARTS,");
+    console.log("  not where it ends, so that alone does not open this report. Run");
+    console.log("  scripts/validate-blind-labels.ts on the case for the per-field reason.");
     console.log("");
     console.log("  This tool measures the delta between the ORIGINAL labels and labels written");
     console.log("  by someone who has not seen the model output (issue #24). Until those blind");
@@ -989,11 +1047,12 @@ function main(): void {
   }
 
   // EVERY case is loaded, only the requested ones are reported on. The gate
-  // above tests whether labeling has STARTED; `loadCase`'s schema check is what
-  // tests whether it produced a usable file. Loading all of them closes the
-  // one-keystroke bypass — a template with a single character typed into it is
-  // no longer pristine, so the gate opens, and only this parse catches that the
-  // sitting is still live.
+  // above tests whether labeling has FINISHED and lands every unlabeled packet
+  // on the exit-0 not-yet-run path; `loadCase`'s schema check is what tests
+  // whether the file that IS labeled is usable. Loading all of them is what
+  // catches the states the gate cannot classify — a file that does not parse, or
+  // parses and does not fit the label schema — in a case you did not ask for,
+  // rather than skipping it.
   const cases = ALL_CASES.map((c) => loadCase(c, packetRoot)).filter((c) =>
     requested.includes(c.caseId),
   );

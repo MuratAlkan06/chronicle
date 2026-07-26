@@ -52,6 +52,7 @@ import {
   packetReadme,
   templateJson,
   sittingState,
+  labelingState,
   asPacketCaseId,
   granularitySection,
   PACKET_ARTIFACTS,
@@ -60,6 +61,8 @@ import {
   SITTING_RULE_LINES,
   STUB_KEY,
   PLACEHOLDER_PATIENT,
+  PLACEHOLDER_LABELED_AT,
+  PLACEHOLDER_NOTES,
   type PacketDoc,
 } from "./label-packet";
 import { leakSources, firstCovering } from "./label-leak-sources";
@@ -258,7 +261,8 @@ test("templateJson: the template gives no example date, type or phrasing to anch
 
 // ---------------------------------------------------------------------------
 // sittingState — the one answer to "has labeling started?", shared by the
-// generator's clobber guard and the leak gate's sitting guard.
+// generator's clobber guard and the leak gate's sitting guard. NOT the question
+// the rescorer's gate asks; see the labelingState block below it.
 // ---------------------------------------------------------------------------
 
 test("sittingState: a missing file is absent, an untouched template is pristine", () => {
@@ -287,6 +291,102 @@ test("sittingState: an unclassifiable packet directory fails closed", () => {
   // pristine. The guard's job is to refuse when it cannot clear something.
   assert.equal(sittingState(templateJson("case1"), undefined), "in-progress");
   assert.equal(sittingState(undefined, undefined), "absent");
+});
+
+// ---------------------------------------------------------------------------
+// labelingState — the OTHER question, "has labeling FINISHED?", which
+// scripts/compare-relabel.ts's gate asks and the two guards above deliberately
+// do not.
+//
+// The two diverge on exactly one state, and it is the state the packet's own
+// checklist instructs first: delete the template stub object. That file has
+// STARTED and has labeled NOTHING, and until 2026-07-26 the rescorer's gate read
+// it as labeled and printed the other case's full report.
+// ---------------------------------------------------------------------------
+
+/** The packet template with its stub object deleted and nothing else done.
+ * Checklist item: `- [ ] The template stub object is deleted.`, and the stub's
+ * own text says "Delete this whole object, then add one object per event." All
+ * three header placeholders are untouched; zero labeling has happened. */
+function stubDeletedTemplate(caseId: CaseId): string {
+  const t = JSON.parse(templateJson(caseId));
+  t.events = [];
+  return JSON.stringify(t, null, 2) + "\n";
+}
+
+/** `labeledJson` with one top-level field overwritten — for the placeholder
+ * cases, which have to start from a file that is otherwise finished. */
+function labeledJsonWith(caseId: CaseId, patch: Record<string, unknown>): string {
+  return JSON.stringify({ ...JSON.parse(labeledJson(caseId)), ...patch }, null, 2) + "\n";
+}
+
+test("labelingState: deleting the stub is where labeling STARTS, not where it ends", () => {
+  // The bypass, as a unit assertion. Both predicates are correct about their own
+  // question and they disagree about this file, which is why they are named
+  // apart and why the rescorer's gate may not use the first one.
+  const started = stubDeletedTemplate("case2");
+  assert.equal(sittingState(started, "case2"), "in-progress", "the sitting HAS started");
+  assert.equal(labelingState(started), "unlabeled", "and nothing has been labeled into it");
+});
+
+test("labelingState: absent, pristine and emptied are all 'not yet'", () => {
+  assert.equal(labelingState(undefined), "absent");
+  for (const c of CASES) {
+    assert.equal(labelingState(templateJson(c)), "unlabeled", `${c} pristine template`);
+    assert.equal(labelingState(stubDeletedTemplate(c)), "unlabeled", `${c} emptied template`);
+    assert.equal(labelingState(labeledJsonWith(c, { events: [] })), "unlabeled", `${c} no events`);
+  }
+});
+
+test("labelingState: any one of the three header placeholders left standing is unlabeled", () => {
+  // Field by field, because the failure mode is one of them being forgotten —
+  // and they are the same three scripts/validate-blind-labels.ts refuses on.
+  for (const [field, placeholder] of [
+    ["patient", PLACEHOLDER_PATIENT],
+    ["labeled_at", PLACEHOLDER_LABELED_AT],
+    ["labeler_notes", PLACEHOLDER_NOTES],
+  ] as const) {
+    assert.equal(
+      labelingState(labeledJsonWith("case1", { [field]: placeholder })),
+      "unlabeled",
+      `${field} still holds its placeholder`,
+    );
+    // Left in place with an edit around it is still left in place.
+    assert.equal(
+      labelingState(labeledJsonWith("case1", { [field]: `see notes — ${placeholder}` })),
+      "unlabeled",
+      `${field} still carries its placeholder`,
+    );
+  }
+});
+
+test("labelingState: the template stub object left among real events is unlabeled", () => {
+  // The checklist item, and the one state zod would wave through: unknown keys
+  // are stripped by default, so a stub object edited into a real event and left
+  // with its `_comment_` key parses fine.
+  const stub = { [STUB_KEY]: "left behind", id: "gt_000", date: "2024-01-01", date_confidence: "exact",
+    event_type: "visit", title: "an event the labeler wrote over the stub", source_document: "d1_a.pdf", in_scope: true };
+  const file = JSON.parse(labeledJson("case1"));
+  assert.equal(labelingState(labeledJsonWith("case1", { events: [stub, ...file.events] })), "unlabeled");
+});
+
+test("labelingState: a file that does not parse is unreadable, never a template", () => {
+  // Folding this into "unlabeled" would report a corrupt file as an untouched
+  // one. The caller has a schema check that can say what is actually wrong.
+  assert.equal(labelingState("{ not json"), "unreadable");
+  assert.equal(labelingState(""), "unreadable");
+  assert.equal(labelingState("[]"), "unreadable");
+  assert.equal(labelingState("null"), "unreadable");
+  assert.equal(labelingState(JSON.stringify({ case_id: "case1" })), "unreadable"); // no events array
+});
+
+test("labelingState: events and no placeholder is 'labeled' — which is not a validity claim", () => {
+  for (const c of CASES) assert.equal(labelingState(labeledJson(c)), "labeled");
+  // Deliberately: this predicate does not read dates, enums or ids. A file that
+  // is labeled and WRONG is the schema check's business, not this one's — and a
+  // file that is labeled and INCOMPLETE cannot be told from a finished one by
+  // anything, which is the limit the rescorer's header states rather than hides.
+  assert.equal(labelingState(labeledJsonWith("case1", { case_id: "not-a-case" })), "labeled");
 });
 
 test("asPacketCaseId: maps a packet subdirectory name onto its template, or nothing", () => {
@@ -896,10 +996,15 @@ test("check-label-leaks: still runs before the sitting, which is where the proto
 // an authorized command, run out of order, and unrecoverable.
 //
 // The gate is therefore evaluated over EVERY case rather than over the
-// requested ones, using the same `sittingState` predicate as the two guards
-// above. Exercised through the REAL script, for the reason the leak-gate block
-// states: the property is not "the predicate returned pristine" but "no count
-// reached the terminal".
+// requested ones — and it asks `labelingState` ("has labeling finished?"), NOT
+// the `sittingState` the two guards above ask. It asked `sittingState` until
+// 2026-07-26 and that is a bypass: the packet checklist's own first instructed
+// act, deleting the template stub object, makes a file differ from the template
+// while labeling nothing, so the gate opened on a packet with zero labels in it.
+//
+// Exercised through the REAL script, for the reason the leak-gate block states:
+// the property is not "the predicate returned unlabeled" but "no count reached
+// the terminal".
 // ---------------------------------------------------------------------------
 
 function runCompare(packetRoot: string, ...args: string[]): { status: number | null; stdout: string; stderr: string } {
@@ -978,7 +1083,7 @@ test("compare-relabel: a single-case run reports nothing while any other packet 
     const r = runCompare(root, "case1");
     assert.equal(r.status, 0, `the gate must stay exit-0 — not-yet-run is a state, not an error\n${r.stderr}`);
     assert.match(r.stdout, /nothing to compare yet/);
-    assert.match(r.stdout, /still the template\s+\S*case2[/\\]blind_labels\.json/, "the refusal must name the unlabeled packet");
+    assert.match(r.stdout, /not labeled yet\s+\S*case2[/\\]blind_labels\.json/, "the refusal must name the unlabeled packet");
 
     // Not one section of the report was produced. Asserted section by section
     // rather than on the banner alone: each of these prints a count.
@@ -1007,11 +1112,61 @@ test("compare-relabel: a single-case run reports nothing while any other packet 
   }
 });
 
+test("compare-relabel: the packet checklist's own first act does not open the report", { skip: skipCompare }, () => {
+  // THE BYPASS, end to end. case2 reduced to `"events": []` with the three
+  // placeholders untouched — the state the packet README instructs ("The
+  // template stub object is deleted", and the stub says "Delete this whole
+  // object, then add one object per event") and the state
+  // scripts/validate-blind-labels.ts refuses with three placeholder violations.
+  // Under the byte-equality gate this printed case1's full report: same 156
+  // lines, same disclosure class, as the defect that gate was written to close.
+  const root = mkdtempSync(join(tmpdir(), "compare-relabel-stub-"));
+  try {
+    writeLabels(root, "case1", labeledJson("case1"));
+    writeLabels(root, "case2", stubDeletedTemplate("case2"));
+
+    const r = runCompare(root, "case1");
+    assert.equal(r.status, 0, `not-yet-run stays exit 0\n${r.stderr}`);
+    assert.match(r.stdout, /nothing to compare yet/);
+    assert.match(r.stdout, /not labeled yet\s+\S*case2[/\\]blind_labels\.json/);
+
+    for (const section of [
+      /LABEL-SET CENSUS/,
+      /AGGREGATE/,
+      /PER-EVENT-TYPE/,
+      /TITLE-OVERLAP DISTRIBUTION/,
+      /MATCH-STATUS CHANGE/,
+      /FAILURE-CAUSE ATTRIBUTION/,
+      /loaded case1:/,
+    ]) {
+      assert.doesNotMatch(r.stdout, section, `the bypass produced report output: ${section}`);
+    }
+    const answers = answerIntegers();
+    for (const n of standaloneIntegers(withoutOrdinals(r.stdout + r.stderr))) {
+      assert.ok(!answers.has(n), `the bypass printed ${n}, which is an original event count`);
+    }
+
+    // And the two scripts now agree about this file, which is the property the
+    // fix is for: the rescorer's precondition is the one the packet already told
+    // the labeler is the precondition, rather than an unenforced ordering.
+    const v = spawnSync(
+      join(REPO_ROOT, "node_modules", ".bin", "tsx"),
+      [join(REPO_ROOT, "scripts", "validate-blind-labels.ts"), "case2", `--packet=${root}`],
+      { cwd: REPO_ROOT, encoding: "utf8", timeout: 120_000 },
+    );
+    assert.equal(v.status, 1, "the validator must still refuse the same file");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("compare-relabel: the same invocation works once every packet is labeled", { skip: skipCompare }, () => {
-  // The gate must not cost the tool its legitimate use, and it is SELF-CLEARING
-  // — which is why there is no `--sitting-over`-style override here. The moment
-  // every packet is labeled the per-case run works, with no flag and no
-  // operator assertion.
+  // The gate must not cost the tool its legitimate use. It is self-clearing in
+  // the FORWARD direction — the moment no packet is unlabeled the per-case run
+  // works, with no flag and no operator assertion — which is why there is no
+  // `--sitting-over`-style override here. It does not clear backwards (an
+  // abandoned sitting, a labels file lost after the sitting); the script header
+  // records that residual rather than claiming it away.
   const root = mkdtempSync(join(tmpdir(), "compare-relabel-open-"));
   try {
     writeLabels(root, "case1", labeledJson("case1"));
@@ -1025,13 +1180,36 @@ test("compare-relabel: the same invocation works once every packet is labeled", 
     assert.doesNotMatch(r.stdout, /loaded case2:/, "a single-case run must still report only the case asked for");
 
     // A half-written label file in a case you did NOT ask for is refused rather
-    // than skipped: the gate tests whether labeling has started, and only the
-    // schema check catches a sitting that started and did not finish.
+    // than skipped. Three shapes, and they land differently ON PURPOSE — what
+    // matters is that none of them produces a report.
+
+    // (i) a one-keystroke edit: started, nothing labeled. The gate itself
+    // catches this now, so it lands on the exit-0 not-yet-run path rather than
+    // on a schema error. That is a change from 2026-07-26 and it is the correct
+    // reading: an unlabeled packet is a state, not invalid input.
     writeLabels(root, "case2", templateJson("case2").replace(PLACEHOLDER_PATIENT, "REDACTED PATIENT, 54F"));
     const mid = runCompare(root, "case1");
-    assert.equal(mid.status, 1, `a one-keystroke edit to case2 reopened the case1 report\n${mid.stdout}`);
-    assert.match(mid.stderr, /case2: .*is not a valid label file/);
+    assert.equal(mid.status, 0, `a one-keystroke edit must land on the not-yet-run path\n${mid.stderr}`);
+    assert.match(mid.stdout, /not labeled yet\s+\S*case2[/\\]blind_labels\.json/);
     assert.doesNotMatch(mid.stdout, /LABEL-SET CENSUS/);
+    assert.doesNotMatch(mid.stdout, /loaded case1:/);
+
+    // (ii) labeled but not schema-valid: the gate cannot see this and does not
+    // pretend to. loadCase does, and exits 1 naming it.
+    writeLabels(root, "case2", labeledJson("case2").replace("2024-01-01", "the fourteenth"));
+    const invalid = runCompare(root, "case1");
+    assert.equal(invalid.status, 1, `an invalid case2 label file reopened the case1 report\n${invalid.stdout}`);
+    assert.match(invalid.stderr, /case2: .*is not a valid label file/);
+    assert.doesNotMatch(invalid.stdout, /LABEL-SET CENSUS/);
+
+    // (iii) not JSON at all: NOT reported as an unlabeled template. It reaches
+    // the parse error, which is the message an operator can act on.
+    writeLabels(root, "case2", labeledJson("case2").replace("{", "{{"));
+    const broken = runCompare(root, "case1");
+    assert.equal(broken.status, 1, `an unparseable case2 label file reopened the case1 report\n${broken.stdout}`);
+    assert.match(broken.stderr, /not valid JSON/);
+    assert.doesNotMatch(broken.stdout, /not labeled yet/, "a corrupt file must not be called a template");
+    assert.doesNotMatch(broken.stdout, /LABEL-SET CENSUS/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
