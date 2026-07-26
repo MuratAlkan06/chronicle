@@ -8,7 +8,16 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Deliberate: `font-mono` maps to the sans face. docs/FRONTEND-STANDARDS.md
+     §Typography locks "Inter for everything" + Source Serif for the wordmark,
+     "no other fonts" — so there is no mono face to point at. This previously
+     read var(--font-geist-mono), which is defined NOWHERE (app/layout.tsx loads
+     only Inter + Source Serif), so it silently fell back to the sans face
+     anyway: same rendering, but a trap — anyone later defining
+     --font-geist-mono would flip every font-mono element to a mono face
+     without touching a single component. Zero visual change; do NOT "fix" this
+     by adding a mono font without reopening the locked standard. */
+  --font-mono: var(--font-sans);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -62,8 +71,19 @@
   --color-surface: #FFFFFF;
   --color-line: #E5E5E0;
   --color-ink: #0A0A0A;
-  --color-ink-muted: #6B6B6B;
-  --color-ink-subtle: #9A9A95;
+  /* Ink scale re-spaced for WCAG 2.x AA (4.5:1, normal text) — these carry
+     9-12px micro-labels, so AA-normal is the bar, not AA-large. Measured by
+     `npx tsx scripts/check-contrast.ts` on #FAFAF7 / #FFFFFF:
+       ink        18.93 / 19.80  (unchanged)
+       ink-muted   7.28 /  7.61  (was #6B6B6B, 5.10 / 5.33)
+       ink-subtle  4.69 /  4.91  (was #9A9A95, 2.70 / 2.83 — FAILED AA)
+     ink-muted moved even though it already passed: had only ink-subtle risen
+     to 4.69 it would have sat next to ink-muted's 5.10 and collapsed the
+     three-step hierarchy into two. #6B6B6B was neutral (R=G=B); #54544F
+     ADOPTS the B = R-5 warm cast that only ink-subtle carried, for
+     consistency with the warm base palette. */
+  --color-ink-muted: #54544F;
+  --color-ink-subtle: #71716C;
   --color-accent-teal: #0F766E;
   --color-snippet: #FEF08A;
 

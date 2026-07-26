@@ -27,14 +27,16 @@ Do not deviate. Do not let Magic-generated components override.
 | Surface | `bg-surface` | `#FFFFFF` |
 | Border | `border-default` | `#E5E5E0` |
 | Text primary | `text-primary` | `#0A0A0A` |
-| Text secondary | `text-secondary` | `#6B6B6B` |
-| Text tertiary | `text-tertiary` | `#9A9A95` |
+| Text secondary | `text-secondary` | `#54544F` |
+| Text tertiary | `text-tertiary` | `#71716C` |
 | Accent (CTAs only, sparingly) | `accent` | `#0F766E` (teal) |
 | Severity — info | `sev-info` | `#6B7280` (slate) |
 | Severity — monitor | `sev-monitor` | `#D97706` (amber) |
 | Severity — concerning | `sev-concerning` | `#DC2626` (red) |
 | Severity — urgent | `sev-urgent` | `#991B1B` (dark red) |
 | Source-snippet highlight | `snippet-highlight` | `#FEF08A` at 60% opacity |
+
+**The ink scale is WCAG AA-gated.** `text-secondary` and `text-tertiary` carry 9-12px micro-labels, so the bar is AA for normal text (**4.5:1**), not AA-large. Measured on `#FAFAF7` / `#FFFFFF` by `npx tsx scripts/check-contrast.ts` — run it after any change to these three, it exits non-zero on a regression: primary **18.93 / 19.80**, secondary **7.28 / 7.61**, tertiary **4.69 / 4.91**. The previous values were `#6B6B6B` (5.10 / 5.33) and `#9A9A95` (**2.70 / 2.83 — failed AA** across 86 usage sites in 8 components). Secondary moved even though it already passed: with tertiary raised to 4.69 it would have sat beside secondary's 5.10, leaving the two tiers visually indistinguishable and collapsing the three-step hierarchy into two. Note the hue — `#6B6B6B` was **neutral** (R=G=B) and only `#9A9A95` carried the `B = R−5` warm cast; `#54544F` **adopts** that cast for scale consistency with the warm base. Do not lower the threshold to make a lighter grey fit.
 
 **Severity tokens supersede RESOLVED-DECISIONS.md #3.** The earlier stone-400 / amber-400 / orange-600 / red-600 palette is no longer current. The H10 colorblind sim check from RESOLVED-DECISIONS.md #3 still applies but to the new palette — specifically, verify that concerning `#DC2626` and urgent `#991B1B` (both reds) remain distinguishable under deuteranopia and protanopia. If they don't, **adjust the urgent token only** (e.g., `#7F1D1D` for more lightness gap). Do not touch the other three.
 
@@ -43,6 +45,7 @@ Do not deviate. Do not let Magic-generated components override.
 - **Inter** for everything (body, UI, buttons)
 - **"Chronicle" wordmark in Source Serif Pro at 22px** (the only serif use anywhere)
 - No other fonts
+- Consequence: `--font-mono` in `app/globals.css` is deliberately mapped to the sans face, because there is no mono face in this system. `font-mono` utilities (used on micro-labels for tabular rhythm) therefore render Inter. Do not repoint it at a mono family without reopening this lock.
 
 ### Visual texture (allowed only these)
 
