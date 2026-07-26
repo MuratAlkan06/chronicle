@@ -3,9 +3,10 @@
  *
  * The ink tokens (`--color-ink*` in app/globals.css) are used for every text
  * surface in the app, including 9-12px micro-labels, so each one must clear the
- * WCAG 2.x SC 1.4.3 AA threshold for normal text (4.5:1) against BOTH page
- * backgrounds — `--color-base` (the app/landing background) and
- * `--color-surface` (cards, panels, the side panel).
+ * WCAG 2.x SC 1.4.3 AA threshold for normal text (4.5:1) against EVERY page
+ * background — `--color-base` (the app/landing background), `--color-surface`
+ * (cards, panels, the side panel) and `--color-base-warm` (the landing page's
+ * alternating "warm" section tone).
  *
  * Tokens are read out of app/globals.css rather than hard-coded here, so this
  * script gates the real source of truth: change a hex there, re-run this, and a
@@ -18,7 +19,7 @@
  *   npx tsx scripts/check-contrast.ts
  *
  * Exit code:
- *   0 — every ink token clears 4.5:1 on both backgrounds
+ *   0 — every ink token clears 4.5:1 on every background
  *   1 — at least one pair fails, or the tokens could not be parsed
  *
  * Reference: WCAG 2.2 "relative luminance" + "contrast ratio" definitions
@@ -34,8 +35,18 @@ const AA_NORMAL = 4.5;
 /** Token prefix that identifies a foreground text colour in the ink scale. */
 const INK_PREFIX = "--color-ink";
 
-/** Backgrounds every ink token has to survive. */
-const BACKGROUND_TOKENS = ["--color-base", "--color-surface"] as const;
+/**
+ * Backgrounds every ink token has to survive — every background the app
+ * actually paints. Add a token here the moment a new one ships: cycle 23's
+ * design review caught `#F5F5F0` hard-coded in app/page.tsx, which this gate
+ * could not see because it was a literal rather than a token, and it hid a
+ * genuine 4.486:1 AA failure on six shipped 11px labels.
+ */
+const BACKGROUND_TOKENS = [
+  "--color-base",
+  "--color-surface",
+  "--color-base-warm",
+] as const;
 
 interface Rgb {
   r: number;
@@ -129,9 +140,10 @@ function main(): void {
   console.log(
     `[check-contrast] source=${CSS_PATH}  threshold=${fmt(AA_NORMAL, 1)}:1 (WCAG 2.x AA, normal text)`,
   );
+  const bgNameWidth = Math.max(...backgrounds.map((bg) => bg.name.length));
   for (const bg of backgrounds) {
     console.log(
-      `[check-contrast] background ${pad(bg.name, 16)} ${bg.hex}  L=${fmt(relativeLuminance(bg.rgb), 4)}`,
+      `[check-contrast] background ${pad(bg.name, bgNameWidth)}  ${bg.hex}  L=${fmt(relativeLuminance(bg.rgb), 4)}`,
     );
   }
   console.log("");
