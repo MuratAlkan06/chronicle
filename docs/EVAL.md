@@ -423,8 +423,10 @@ optional.
 
 Issue #22. Every number in this section is output of
 `npx tsx scripts/analyze-title-overlap.ts`, a read-only diagnostic over the
-cached dev cases. It runs no model, opens nothing under `held_out/`, is not a
-CI gate, and always exits 0. **Case 3 was not measured for this section and
+cached dev cases. It runs no model, opens nothing under `held_out/`, and is
+not a CI gate. It exits 0 regardless of what it *finds* — no finding is ever
+treated as a failure — but exits non-zero on invalid input, including a case
+name it refuses to read. **Case 3 was not measured for this section and
 deliberately was not** — the peek budget is down to ≤1 scored event and
 per-event error analysis is forbidden (§6), so everything below is a statement
 about Cases 1+2 and about the metric itself.
@@ -460,11 +462,42 @@ degenerates to `event_type` + date, and re-score with the same `evaluate()`:
 | case1 | F1 0.77 (tp12/fp6/fn1) | F1 0.77 (tp12/fp6/fn1) | +0.00 |
 | case2 | F1 0.88 (tp7/fp1/fn1)  | F1 0.88 (tp7/fp1/fn1)  | +0.00 |
 
-Not merely the same F1 — **bit-identical tp/fp/fn**. The title-overlap
-constraint rejects zero candidate pairs on Cases 1+2. The published dev
-headline (macro-mean strict F1 **0.825**, reproduced exactly by this
-diagnostic) is therefore a measurement of `event_type` + exact-day agreement
-and carries **no information** about whether the model's titles are any good.
+Not merely the same F1 — **bit-identical tp/fp/fn** on all four (case, tier)
+combinations, and in the fixtures' own array ordering the **individual
+GT↔prediction pairings** are unchanged too, not just the counts.
+
+The gate is not inert. **[Corrected 2026-07-26 — this paragraph previously
+said the constraint "rejects zero candidate pairs on Cases 1+2". That is
+false; it conflated *unmatched GT events attributable to overlap* at k=all,
+which is genuinely zero (see the attribution table below), with *candidate
+pairs rejected*, which is not. The conclusion is unaffected, for the reason
+given below.]** Of the 24 (prediction, GT) pairs that clear `event_type`
+**and** the strict date tier, the overlap gate rejects **4** of them
+(16.7%) — all four case1 `lab` pairs, all four at overlap **0.000**:
+
+| predicted title                | GT title                          |
+|--------------------------------|-----------------------------------|
+| `Glucose, fasting — 187 mg/dL` | `HbA1c — 9.2%`                    |
+| `LDL — 132 mg/dL`              | `HbA1c — 9.2%`                    |
+| `HbA1c — 6.9 %`                | `LDL — 145 mg/dL (borderline high)` |
+| `LDL Cholesterol — 145 mg/dL`  | `HbA1c — 6.9%`                    |
+
+What is true is that **none of those rejections is outcome-relevant**: in each
+one the correct GT was still available to the correct prediction, so removing
+the gate entirely leaves `tp`/`fp`/`fn` unchanged. That is not an artifact of
+fixture ordering — the counts are identical gated vs title-blind across **400
+seeded shuffles of both arrays** (0 mismatches), which closes off the most
+plausible way a greedy-matching null result like this could be fake. The
+pairings are identical in the fixture ordering; under shuffled orderings they
+can differ (170 of those same 400 trials), always on `gt_002` / `gt_011` /
+`gt_012` — the three GT events in the table above — because blinding makes
+those four rejected predictions eligible and array order then decides which
+one claims the GT. **The counts never move.**
+
+The published dev headline (macro-mean strict F1 **0.825**, reproduced exactly
+by this diagnostic) is therefore a measurement of `event_type` + exact-day
+agreement and carries **no information** about whether the model's titles are
+any good.
 
 That is because dev labels and dev predictions co-phrase. Of the 19 matched
 pairs (strict tier), **36.8% are byte-identical strings** (`"Started metformin
@@ -598,15 +631,36 @@ npx tsx scripts/analyze-title-overlap.ts          # case1 + case2
 npx tsx scripts/analyze-title-overlap.ts case1    # one case
 ```
 
-It refuses `case3` by name. `lib/eval.ts` keeps `titleTokens` and `overlap`
-module-private, so the script re-implements those two leaf helpers locally and
-labels them a mirror; every match decision still goes through the exported
-`matchesEvent` / `evaluate` / `breakdown`. The report opens with two
-self-checks: the mirror is confirmed to agree with production `matchesEvent` on
-**596/596** real (prediction, GT, tier) triples, and the greedy-pairing mirror
-used to recover *which* pairs matched is confirmed to reproduce production
-`evaluate()`'s `tp` and `fn` on all four (case, tier) combinations. If either
-check ever fails it prints loudly rather than reporting numbers.
+It refuses `case3` by name (exit 1). `lib/eval.ts` keeps `titleTokens` and
+`overlap` module-private, so the script re-implements those two leaf helpers
+locally and labels them a mirror; every match decision still goes through the
+exported `matchesEvent` / `evaluate` / `breakdown`.
+
+**Why the mirror can be trusted.** The argument is source identity, not
+agreement on dev: the two mirrored helpers are **byte-identical to the
+production source after renaming** (`titleTokensMirror` → `titleTokens`,
+`overlapMirror` → `overlap` — same sha256, `e928483d…c5da`). That makes them
+equivalent on *all* inputs, not merely on the dev fixtures, and it is the
+claim to check when `lib/eval.ts` changes.
+
+The report also opens with two runtime self-checks: the mirror agrees with
+production `matchesEvent` on **596/596** real (prediction, GT, tier) triples,
+and the greedy-pairing mirror used to recover *which* pairs matched reproduces
+production `evaluate()`'s `tp` and `fn` on all four (case, tier) combinations.
+If either fails it prints loudly rather than reporting numbers.
+
+**The 596/596 check has a known blind spot and is not the fidelity argument.**
+It compares only the `≥ 0.5` **boolean** against production, while sections
+[1]–[3] report the mirror's **continuous** overlap values. Fault injection
+shows what it does and does not catch: dropping `.toLowerCase()` from the
+mirror is caught (590/596), but changing the mirror's denominator from `max`
+to `min` is **not** (596/596 still passes while silently corrupting the
+continuous values throughout, including the headline identical-token-set rate,
+57.9% → 73.7%), and neither is moving the threshold to 0.4 — no
+`event_type`-and-date-qualifying pair sits in `[0.4, 0.5)`, so the boolean
+never changes. The self-check cannot discriminate the `max`-vs-`min` property
+that
+the mechanism argument above rests on — only source identity does.
 
 ---
 

@@ -65,9 +65,18 @@ const THRESHOLD = 0.5;
 // THESE ARE A MIRROR, NOT THE PRODUCTION FUNCTIONS. Everything that decides a
 // match in this script goes through the real exported `matchesEvent` /
 // `evaluate` / `breakdown`; the mirror is used only to *report* intermediate
-// numbers the production API does not return. `verifyMirror()` below proves the
-// mirror agrees with production on every real (prediction, GT) pair in Cases
-// 1+2, and its result is printed at the top of the report.
+// numbers the production API does not return.
+//
+// WHY THE MIRROR CAN BE TRUSTED: source identity, not agreement on dev. The two
+// function bodies below are byte-identical to lib/eval.ts's after renaming
+// (`titleTokensMirror` -> `titleTokens`, `overlapMirror` -> `overlap`): the
+// renamed 11-line block hashes to sha256 e928483d…c5da, the same as lib/eval.ts
+// lines 50-60. That makes them equivalent on ALL inputs, not just these
+// fixtures. If lib/eval.ts ever changes, re-check that hash — it is the
+// reliable desync detector, NOT the runtime self-check below.
+//
+// `verifyMirror()` below is a tripwire, not the proof. See the comment there
+// for the blind spot it is known to have.
 // ---------------------------------------------------------------------------
 function titleTokensMirror(s: string): Set<string> {
   return new Set(s.toLowerCase().match(/[a-z0-9]+/g) ?? []);
@@ -163,6 +172,25 @@ function loadCase(caseId: CaseId): LoadedCase {
 // production predicate must equal type-equality AND mirror-overlap >= 0.5 AND
 // date-within-tier. Any disagreement invalidates every mirror-derived number in
 // this report, and is printed loudly.
+//
+// KNOWN BLIND SPOT — do not cite the 596/596 result as proof of mirror
+// fidelity. This compares only the `>= 0.5` BOOLEAN, whereas sections [1]-[3]
+// report the mirror's CONTINUOUS overlap values. Fault injection, on these
+// fixtures:
+//
+//   mirror loses .toLowerCase()      -> CAUGHT      (590/596)
+//   mirror denominator max -> min    -> NOT CAUGHT  (596/596 still passes,
+//                                       while the continuous values shift —
+//                                       e.g. identical-token-set rate among
+//                                       matched pairs 57.9% -> 73.7%)
+//   threshold 0.5 -> 0.4             -> NOT CAUGHT  (no type-and-date
+//                                       qualifying pair lies in [0.4, 0.5),
+//                                       so the boolean never moves)
+//
+// i.e. this check cannot discriminate the max-vs-min denominator property that
+// the report's whole mechanism argument rests on. It catches gross tokenizer
+// divergence and nothing subtler. The fidelity argument is the source-identity
+// hash documented at the mirror definition above.
 // ---------------------------------------------------------------------------
 interface MirrorCheck {
   pairsChecked: number;
