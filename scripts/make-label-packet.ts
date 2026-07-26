@@ -48,15 +48,30 @@
  * ---------------------------------------------------------------------------
  *
  * Also stripped, deliberately (see the packet README's "What was withheld"):
- *   - `[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` marker lines in the drafts. They
- *     map 1-1 onto `events.json` `source.snippet` anchors, i.e. they highlight
- *     the exact sentences the fixture author treated as event-bearing. The
- *     print-ready HTML the PDFs were exported from carries none of them, so
- *     stripping makes the packet read like the PDF the model actually saw. The
- *     snippet TEXT itself stays verbatim — it is part of the document.
+ *   - `[SNIPPET — DO NOT EDIT]` / `[/SNIPPET]` marker lines in the drafts.
+ *     There is exactly ONE marked block per ORIGINAL GROUND-TRUTH EVENT, in
+ *     every document of both cases, with zero mismatches. The markers are
+ *     therefore a complete answer key to the original labels AND to their
+ *     granularity, laid over the documents.
+ *
+ *     They do NOT "map 1-1 onto `events.json` `source.snippet` anchors" — the
+ *     claim this comment and the packet README both carried until 2026-07-26.
+ *     Measured: several marked blocks have no prediction snippet, and rather
+ *     more prediction snippets have no marked block. The stripping was always
+ *     the right mitigation; only its stated rationale was wrong, and wrong in
+ *     the direction that made the leak sound smaller than it is.
+ *
+ *     The print-ready HTML the PDFs were exported from carries no markers
+ *     either, so stripping makes the packet read like the PDF the model
+ *     actually saw. The snippet TEXT itself stays verbatim — it is part of the
+ *     document. Because the ORIGINALS still carry the key, the packet README
+ *     puts `data/cases/<case>/source_drafts/` on the forbidden list.
  *   - `source_drafts/README.md`, which names the planted d3-vs-d5 contradiction.
- *   - Any target event count. §5's "15-30 events" checklist item is an anchor;
- *     handing it to a blind labeler contaminates the count comparison.
+ *   - Any target event count. §5's checklist carries one; it is an anchor, and
+ *     handing it to a blind labeler contaminates the count comparison. It is
+ *     not restated here either, in any form — including here. The packet
+ *     README's "What was withheld" withholds it without naming it, which is the
+ *     only way a withheld anchor stays withheld.
  *
  * Usage:
  *   npx tsx scripts/make-label-packet.ts                 # case1 + case2
@@ -70,10 +85,18 @@
  */
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join, resolve, relative, sep } from "node:path";
+import { join, resolve, relative, dirname, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { EventTypeSchema, DateConfidenceSchema } from "../lib/schema";
 
 const TAG = "[label-packet]";
+
+/** Repo root, derived from THIS FILE's own location rather than from
+ * `process.cwd()`. The `--out` guard in `main` tests resolved ABSOLUTE paths for
+ * containment under it, so the guard holds whatever directory the script is
+ * invoked from — a cwd-relative string test does not (run from `scripts/`,
+ * `--out=../data/x` lands in `data/` while spelling itself `../data/x`). */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 type CaseId = "case1" | "case2";
 const ALL_CASES: CaseId[] = ["case1", "case2"];
@@ -118,6 +141,97 @@ const DENY_PATTERNS: Array<{ re: RegExp; why: string }> = [
   { re: /(^|\/)eval_reports(\/|$)/, why: "scored reports derived from predictions + labels" },
   { re: /(^|\/)metadata\.json$/, why: "carries the model's event COUNT for the case" },
 ];
+
+/** The HUMAN-side counterpart to DENY_PATTERNS above.
+ *
+ * The generator is structurally blind: not one of these paths is on the
+ * allowlist, several are on the denylist, and no byte of any of them can reach a
+ * packet. That does nothing about the actual risk, which is that a human
+ * labeling inside this checkout can open any of them in one keystroke. **Tooling
+ * blindness is not protocol blindness**, and a packet generator is the last
+ * moment anyone is paying attention before the sitting starts.
+ *
+ * Checked for EXISTENCE ONLY — `existsSync`, never a read — so the read-call-site
+ * audit property stated at the top of this file is unaffected: this block adds no
+ * reader, and none of these paths is ever opened by this script.
+ *
+ * `why` is specific and quantified wherever it can be. "Contains some titles"
+ * is the kind of reason that invites a labeler to decide an item looks
+ * harmless. */
+interface LeakSource {
+  path: string; // repo-relative; a trailing "/" means the whole directory
+  why: string;
+}
+
+function leakSources(cases: CaseId[]): LeakSource[] {
+  return [
+    {
+      path: "MOCK_DATA.md",
+      why: 'COMPLETE ANSWER KEY — every original ground-truth event for both cases, verbatim, in `"title": "…"` JSON form. Its own header states it is the basis for those labels.',
+    },
+    {
+      path: "lib/fixtures.ts",
+      why: "the same complete answer key, mirrored verbatim into code (its header says so).",
+    },
+    {
+      path: "STATE.md",
+      why: "session log — quotes original ground-truth titles AND model-predicted titles in passing, scattered through a very large file. No section of it is safe to skim.",
+    },
+    {
+      path: "prompts/",
+      why: "WHOLE DIRECTORY, every file, including any added later — versioning notes quote original ground-truth titles for these cases, and the per-type Title templates ARE the phrasing the model was tuned to produce.",
+    },
+    {
+      path: "lib/claude.ts",
+      why: "carries those same per-type Title templates, with worked examples, in code.",
+    },
+    {
+      path: "docs/EVAL.md",
+      why: "§7 quotes original labels and predictions verbatim. Everything you need from it is inlined in the packet, so there is no reason to open it at all.",
+    },
+    ...cases.map((c) => ({
+      path: `data/cases/${c}/source_drafts/`,
+      why: "your packet documents WITH the [SNIPPET] answer key still in them — exactly one marked block per original ground-truth event.",
+    })),
+    ...cases.map((c) => ({
+      path: `data/cases/${c}/`,
+      why: "events.json (cached predictions), ground_truth.json (the original labels), metadata.json (the model's event count).",
+    })),
+  ];
+}
+
+/** Printed at the END of every run — the moment the packet is handed over. */
+function reportLeakSources(cases: CaseId[]): void {
+  const sources = leakSources(cases);
+  const present = sources.filter((s) => existsSync(resolve(REPO_ROOT, s.path)));
+  const absent = sources.filter((s) => !existsSync(resolve(REPO_ROOT, s.path)));
+
+  console.log("");
+  console.log("=".repeat(96));
+  console.log(`${TAG} BEFORE YOU LABEL — your PACKET is blind. This REPOSITORY is not.`);
+  console.log("=".repeat(96));
+  console.log("  This generator cannot read any path below, and no byte of any of them is in your");
+  console.log("  packet. It also cannot stop you opening one. Each carries, verbatim, original");
+  console.log("  ground-truth titles or model-predicted titles for these cases — and title");
+  console.log("  phrasing is the single quantity this experiment exists to measure. There is no");
+  console.log("  partial contamination: one line read is the measurement gone.");
+  console.log("");
+  for (const s of present) {
+    console.log(`  DO NOT OPEN   ${s.path}`);
+    console.log(`                ${s.why}`);
+  }
+  if (absent.length > 0) {
+    console.log("");
+    console.log(`  Not present in this checkout (listed so the rule does not go stale): ${absent
+      .map((s) => s.path)
+      .join(", ")}`);
+  }
+  console.log("");
+  console.log("  The same list, with the same reasons, is the numbered rule block at the top of");
+  console.log("  every packet README. If you catch yourself weighing whether some OTHER file is");
+  console.log("  safe, apply the test directly: does it quote a title for one of these two cases?");
+  console.log("  If you cannot answer that without opening it, do not open it.");
+}
 
 function repoRel(abs: string): string {
   return relative(process.cwd(), abs).split(sep).join("/");
@@ -556,22 +670,61 @@ no measurement left to take.
 
 ## Rules of this sitting
 
-1. Do **not** open \`data/cases/${caseId}/events.json\` (cached predictions),
+**This packet is blind. The repository around it is not.** The generator that
+wrote these files cannot read any of the paths below — they are off its
+allowlist, several are on its denylist, and no byte of any of them is in this
+packet. It cannot stop *you* opening them.
+
+Every path in rules 1–6 is forbidden for one reason: it contains, **verbatim**,
+either the original ground-truth titles for these cases or the model's predicted
+titles. Title phrasing is the single quantity this experiment measures. There is
+no partial contamination — one line read is the measurement gone, and the only
+honest thing left to do would be to say so and abandon the sitting.
+
+1. **\`MOCK_DATA.md\`, at the repository root. This is the one that matters
+   most.** It carries **every one of the original ground-truth events for both
+   cases**, verbatim, in \`"title": "…"\` JSON form, and its own header states it
+   is the basis for those labels. It is a **complete answer key**, sitting in
+   plain sight at the top level of the repo. \`lib/fixtures.ts\` mirrors the same
+   content into code and is equally disqualifying. Do not open either, for any
+   reason, including to check something unrelated.
+2. **\`STATE.md\`.** The session log. It quotes original ground-truth titles and
+   model-predicted titles in passing, scattered through a very large file. There
+   is no section of it that is safe to skim during this sitting.
+3. Do **not** open \`data/cases/${caseId}/events.json\` (cached predictions),
    \`data/cases/${caseId}/ground_truth.json\` (the original labels),
-   \`data/cases/${caseId}/metadata.json\`, \`data/eval_reports/\`, or
-   \`data/case3_eval_fallback.json\`. Do not run the extractor.
-2. Do **not** open anything under \`held_out/\`. That budget is terminal
+   \`data/cases/${caseId}/metadata.json\` (the model's event count),
+   \`data/eval_reports/\`, or \`data/case3_eval_fallback.json\`. Do not run the
+   extractor.
+4. Do **not** open **anything under \`prompts/\`** — the whole directory, every
+   file in it, including files added after this packet was generated. Its
+   versioning notes quote original ground-truth titles for these cases verbatim,
+   and its per-type "Title" templates **are** the phrasing the model was tuned
+   to produce; copying them is the co-phrasing this experiment measures.
+   \`lib/claude.ts\` carries those same templates in code and is out for the same
+   reason. **Part D below reproduces the granularity rules you actually need**,
+   with the leaking passages removed.
+5. Do **not** open \`data/cases/${caseId}/source_drafts/\`. Those are the same
+   documents you have in \`docs/\` here, but **with the answer key still in
+   them**: they carry \`[SNIPPET]\` marker lines, exactly one marked block per
+   original ground-truth event. Read the copies in this packet, which have the
+   markers removed. See "What was withheld", below.
+6. Do **not** read \`docs/EVAL.md\` §7 during the sitting. It quotes original
+   labels and predictions verbatim. Everything from it you need is inlined below,
+   so there is no reason to open the file at all.
+7. Do **not** open anything under \`held_out/\`. That budget is terminal
    (\`docs/RESOLVED-DECISIONS.md\` #10) and this experiment exists specifically so
    it does not have to be spent.
-3. Do **not** read \`docs/EVAL.md\` §7 during the sitting. It quotes original
-   labels and predictions verbatim. Everything from it you need is inlined below.
-4. Do **not** open \`prompts/system_extract_v4.md\` (or the earlier \`v1\`–\`v3\`
-   files, or \`prompts/CHANGELOG.md\`). Their versioning notes quote original
-   ground-truth titles for these cases verbatim. Part D reproduces the rules you
-   need from that file with the leaking passages removed.
-5. One sitting, no splitting across days (protocol item 2 below).
-6. Write into \`blind_labels.json\` in this directory. When you are done:
+8. One sitting, no splitting across days (protocol item 2 below).
+9. Write into \`blind_labels.json\` in this directory. When you are done:
    \`npx tsx scripts/validate-blind-labels.ts ${caseId}\`.
+
+Rules 1–6 are a list of the paths that leak **today**. Treat the list as
+examples of a rule, not as the rule itself. The rule is: **does this file quote a
+title for one of these two cases?** If you cannot answer that without opening the
+file, you do not get to open it — pause and ask. A paused sitting can be
+resumed; a contaminated one cannot be repaired, and cannot be detected
+afterwards either.
 
 ## Reading order
 
@@ -644,7 +797,7 @@ Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
   baseline this experiment measures against and must not change.
 - "Do NOT run the model first" → the model has **already** run on these
   documents; the predictions are cached in the repo. The instruction becomes:
-  do not open them. Rule 1 above lists the files.
+  do not open them. Rule 3 above lists the files.
 - \`chmod 444\` / \`git hash-object\` / \`.gt_hash.lock\` → skip. Those lock a
   held-out artifact. This packet is untracked working material.
 - "the system prompt" / "the schema above" → **Part D** and the record shape
@@ -652,21 +805,37 @@ Part A is quoted unchanged, so it says "Case 3" and \`ground_truth.json\` and
 
 ### What was withheld from this packet, and why
 
-- **Any target event count.** §5's checklist says "15-30 events"; that number is
-  an anchor, and the count you produce is one of the things being compared.
-  Label at the granularity the documents and the prompt spec support and let the
-  count fall where it falls.
-- **\`[SNIPPET]\` marker lines** present in the original drafts. They mark the
-  exact sentences the fixture author treated as event-bearing — they are the
-  citation anchors the predictions carry. The print-ready HTML the PDFs were
-  exported from does not contain them either, so the \`docs/\` copies here read
-  the way the PDF does. The snippet sentences themselves are untouched.
+- **Any target event count.** §5's labeling checklist names one. It is withheld
+  here, and it is deliberately **not restated, paraphrased, or bounded anywhere
+  in this packet** — not even to tell you which side of it the truth falls on.
+  An expected count is an anchor: given one, you would label toward it, and the
+  count you produce is itself one of the things being compared against the
+  original labels. Label at the granularity the documents and the prompt spec
+  support, and let the count fall where it falls. If that leaves you unsure
+  whether you have "enough" events, that uncertainty is correct — keep it.
+- **\`[SNIPPET]\` marker lines** present in the original drafts. These are not a
+  subtle hint. There is **exactly one marked block per original ground-truth
+  event, in every document of both cases, with zero mismatches** — so the
+  markers are a complete answer key to the original labels *and* to the
+  granularity those labels were written at, laid directly over the document
+  text. (An earlier version of this packet described the markers as mapping 1-1
+  onto the *predictions'* citation anchors. That was measured and is false:
+  several marked blocks have no prediction snippet, and rather more prediction
+  snippets have no marked block. What the markers actually track is the
+  **original labels** — the more damaging of the two, which is why the wrong
+  description is worth correcting rather than dropping.) The print-ready HTML
+  the PDFs were exported from carries no markers either, so the \`docs/\` copies
+  here read exactly the way the PDF the model saw does. The snippet sentences
+  themselves are untouched — they are part of the document. **This is what rule
+  5 is for:** stripping the markers from your copies achieves nothing if you go
+  read the originals.
 - **\`source_drafts/README.md\`**, which names a deliberate contradiction planted
   between two of the documents.
 - **\`metadata.json\`**, which records how many events the model emitted.
-- **\`prompts/**\`**, whose versioning notes quote original ground-truth titles
-  for these cases verbatim and whose Title section holds the per-type title
-  templates the model was tuned on. Part D carries the rules, not the phrasing.
+- **The whole of \`prompts/\`**, whose versioning notes quote original
+  ground-truth titles for these cases verbatim and whose Title section holds the
+  per-type title templates the model was tuned on. Part D carries the rules from
+  it, not the phrasing.
 
 ---
 
@@ -777,8 +946,27 @@ function main(): void {
   const outFlag = raw.find((a) => a.startsWith("--out="));
   const outRoot = resolve(process.cwd(), outFlag ? outFlag.slice("--out=".length) : DEFAULT_OUT_ROOT);
   const outRel = repoRel(outRoot);
-  if (/(^|\/)held_out(\/|$)/.test(outRel) || /^data(\/|$)/.test(outRel) || /case3/i.test(outRel)) {
-    console.error(`${TAG} REFUSED — output root "${outRel}" is inside held_out/, data/, or names case3`);
+
+  // Containment is tested on the RESOLVED ABSOLUTE path against REPO_ROOT, not
+  // on the cwd-relative string. A cwd-relative test is only as good as the cwd:
+  // run from `scripts/`, `--out=../data/x` resolves into `data/` while spelling
+  // itself "../data/x", which no `^data` anchor matches. An absolute prefix test
+  // cannot be walked out of with `..`, because `resolve` has already collapsed
+  // them.
+  const forbiddenRoots: Array<{ name: string; abs: string; why: string }> = [
+    { name: "held_out/", abs: resolve(REPO_ROOT, "held_out"), why: "terminal held-out budget (docs/RESOLVED-DECISIONS.md #10)" },
+    { name: "data/", abs: resolve(REPO_ROOT, "data"), why: "holds the cached predictions and the original labels" },
+  ];
+  const within = (child: string, parent: string): boolean =>
+    child === parent || child.startsWith(parent + sep);
+  const hit = forbiddenRoots.find((f) => within(outRoot, f.abs));
+  if (hit) {
+    console.error(`${TAG} REFUSED — output root "${outRel}" resolves to ${outRoot},`);
+    console.error(`${TAG} which is inside ${hit.name} — ${hit.why}`);
+    process.exit(1);
+  }
+  if (/case3/i.test(outRoot)) {
+    console.error(`${TAG} REFUSED — output root "${outRel}" resolves to ${outRoot}, which names case3`);
     process.exit(1);
   }
 
@@ -884,6 +1072,10 @@ function main(): void {
   for (const w of WRITES) {
     console.log(`  ${String(w.bytes).padStart(7)}B  ${w.sha256.slice(0, 12)}  ${w.path}`);
   }
+
+  // Last thing printed, deliberately: the tooling is blind, the repo is not, and
+  // this is the moment the packet is handed to a human.
+  reportLeakSources(cases);
 
   console.log("");
   console.log(`${TAG} done — ${WRITES.length} file(s) written under ${outRel}/`);

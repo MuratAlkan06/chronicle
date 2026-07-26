@@ -97,7 +97,9 @@ function looksLikePlaceholder(s: string): boolean {
   return PLACEHOLDER_PREFIXES.some((p) => s.startsWith(p));
 }
 
-function validateCase(caseId: CaseId, packetRoot: string): CaseResult {
+/** Collects everything wrong with one case. Has several early exits; callers go
+ * through `validateCase`, which is what guarantees the ordering. */
+function collectCaseResult(caseId: CaseId, packetRoot: string): CaseResult {
   const labelsPath = join(packetRoot, caseId, "blind_labels.json");
   const result: CaseResult = {
     caseId,
@@ -320,18 +322,59 @@ function validateCase(caseId: CaseId, packetRoot: string): CaseResult {
     `docs referenced=${referenced.size}, docs present=${pdfNames.size}`,
   );
 
-  // Violations are collected in three passes (header, per-event schema,
-  // semantics), so sort them back into file order before reporting — a reader
-  // fixing the file works top to bottom.
-  result.violations.sort((a, b) => sortKey(a.path).localeCompare(sortKey(b.path)));
-
   return result;
 }
 
-/** `case1.events[7].date` -> `case1.events[0007].date`, so string comparison
- * orders event indices numerically. Header paths sort before event paths. */
+/** Validate one case, with violations always reported in file order.
+ *
+ * Violations are collected in several passes (template, header, per-event
+ * schema, semantics), so they need sorting back into file order before
+ * reporting — a reader fixing the file works top to bottom.
+ *
+ * The sort lives HERE, wrapping the collector, rather than at the collector's
+ * final `return`, because that function has five exit paths and only the last
+ * one reached the sort. The template-stub path in particular — the pristine
+ * packet, which is the single most common way this script gets run — bails at
+ * `result.violations.length > 0` and so reported in raw insertion order:
+ * `events[0]` stub first, then `patient`, `labeled_at`, `labeler_notes`. That
+ * is precisely the header-below-events inversion HEADER_RANK exists to prevent,
+ * left unfixed on the one path that demonstrates it. Wrapping is what makes the
+ * guarantee hold for every exit path, including any added later. */
+function validateCase(caseId: CaseId, packetRoot: string): CaseResult {
+  const result = collectCaseResult(caseId, packetRoot);
+  result.violations.sort((a, b) => sortKey(a.path).localeCompare(sortKey(b.path)));
+  return result;
+}
+
+/** Rank of each top-level key in the order it appears in `blind_labels.json`,
+ * which is the order someone fixing the file reads it in. */
+const HEADER_RANK: Record<string, number> = {
+  case_id: 0,
+  patient: 1,
+  labeled_at: 2,
+  labeler_notes: 3,
+  events: 4,
+};
+
+/** `case1.events[7].date` -> `case1.4.events[0007].date`: the rank prefix puts
+ * top-level keys in FILE order, and the zero-padded index keeps event indices
+ * numeric under string comparison.
+ *
+ * The rank prefix is load-bearing. Sorting the raw path alphabetically — which
+ * is what this did until 2026-07-26 — does not put header paths first, it puts
+ * three of the four last: `l` > `e`, so `case1.labeled_at`, `case1.labeler_notes`
+ * and `case1.patient` all sorted BELOW `case1.events[…]`, and only `case_id`
+ * landed correctly, by luck of the alphabet.
+ *
+ * Paths with no recognized top-level key — the whole-file failures `case1` and
+ * `case1 <file>`, and zod's `case1.<root>` — get no prefix rewrite or rank 9.
+ * The first two still sort ahead of everything (a prefix, and ' ' < '.'), which
+ * is where a "this file is not parseable" message belongs. */
 function sortKey(path: string): string {
-  return path.replace(/\[(\d+)\]/g, (_, n: string) => `[${n.padStart(4, "0")}]`);
+  const padded = path.replace(/\[(\d+)\]/g, (_, n: string) => `[${n.padStart(4, "0")}]`);
+  const key = /^[^.]+\.([A-Za-z_]+)/.exec(padded)?.[1];
+  if (key === undefined) return padded;
+  return padded.replace(/^([^.]+)\./, `$1.${HEADER_RANK[key] ?? 9}.`);
 }
 
 function main(): void {

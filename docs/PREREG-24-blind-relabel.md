@@ -166,3 +166,88 @@ decision rule above.
 | ~0.60, 0.50–0.70, 0.60, 0.75 | **predictions and decision thresholds registered here** |
 
 Nothing above is a measurement of a blind label. No blind label exists yet.
+
+---
+---
+
+## Amendment 1 (2026-07-26)
+
+**Everything above this delimiter is the original pre-registration, unchanged.**
+It was posted to issue #24 as comment `5082307494`, before any blind label
+existed, and **that comment has not been edited** — GitHub marks edited comments,
+and it carries no such mark. The text above is byte-identical to it (sha256
+`5628ef79…5416a`, 8464 bytes).
+
+**This amendment is posted as a separate, later-timestamped comment on the same
+issue.** It is deliberately *not* an edit of comment `5082307494`. A
+pre-registration whose entire value is its timestamp cannot be revised in place
+without destroying the property that made it worth writing. The honest record is
+two comments in sequence — the original still readable exactly as first posted,
+the amendment visibly later — and not one rewritten comment that reads as though
+it always said this. Read them in that order.
+
+**What this amendment does: it adds one restriction to the binding protocol. It
+changes no hypothesis, no prediction, no point estimate, no interval, no
+threshold, and no decision rule.** The predictions above (direction; ~0.60 with
+interval 0.50–0.70; the per-type ordering; overlap as the loss mechanism) and the
+decision bands (< 0.60 / 0.60–0.75 / > 0.75) stand exactly as registered.
+Nothing below makes a favorable outcome easier to reach or an unfavorable one
+easier to discount — the restriction cuts against the hypothesis if anything,
+since every file it closes is one that would have pushed the labeler back toward
+the original phrasing. That asymmetry is what distinguishes an amendment from a
+retro-fit, and it is the only ground on which this one should be accepted.
+
+### Why it is needed
+
+The binding protocol above forbids `data/cases/*/events.json`,
+`data/cases/*/ground_truth.json`, `data/eval_reports/`,
+`data/case3_eval_fallback.json` and `prompts/system_extract_v4.md`. **That list is
+incomplete.** It was drawn from the files the *tooling* must not read, and the
+tooling is blind by construction — explicit allowlist, explicit denylist, printed
+read ledger. The labeler is not the tooling. A human labeling inside this
+checkout can open, in one keystroke, several tracked files that carry the
+original ground-truth titles verbatim, and the protocol names none of them.
+
+The largest is not a corner case. **`MOCK_DATA.md` sits at the repository root and
+contains all 21 original ground-truth events for Cases 1+2, verbatim, in
+`"title": "…"` JSON form.** Its own header states it is "the basis for the Cases
+1+2 gold labels". It is a complete answer key, in plain sight, and the original
+protocol does not mention it.
+
+### Added to the binding protocol
+
+For the duration of the labeling sitting, the labeler must not open any of the
+following. Counts are of the 21 original ground-truth titles for Cases 1+2
+(13 in case1, 8 in case2; all in scope), each appearing verbatim:
+
+| path | leaks | why it matters |
+|------|-------|----------------|
+| `MOCK_DATA.md` | **21 / 21**, in `"title": "…"` JSON form | Complete answer key, at the repo root, self-described as the basis for these labels. |
+| `lib/fixtures.ts` | **21 / 21** | The same complete answer key mirrored into code; its header says it "Mirrors MOCK_DATA.md verbatim". |
+| `STATE.md` | 12 / 21, plus 7 further model-predicted titles | Session log. Quotes original labels and model predictions in passing across a very large file; no part of it is safe to skim. |
+| `prompts/**` — the **whole directory** | `few_shot.md` 9 / 21; `system_extract_v4.md` 4 / 21; `system_extract_v3.md` 4 / 21 | The protocol above named only `system_extract_v4.md`. **`prompts/few_shot.md` leaks more than the file that was named, and was not named.** The rule now covers the directory as a whole, including files added after this date. |
+| `lib/claude.ts` | 11 / 21 | Carries the per-type Title templates, with worked examples drawn from these very cases, in code. |
+| `docs/EVAL.md` | 6 / 21, plus 5 predicted titles | §7 quotes original labels and predictions verbatim. Everything the labeler needs from §5 and §7 is inlined into the packet. |
+| `data/cases/*/source_drafts/` | the granularity key | The packet documents with their `[SNIPPET]` markers still in place — **exactly one marked block per original ground-truth event, in every document of both cases, zero mismatches.** |
+| `data/cases/*/metadata.json` | the model's event count | Records how many events the model emitted (`eventCount`). |
+
+Of these, only `data/cases/*/metadata.json` was already refused by the packet
+generator's denylist; the rest were reachable by the labeler and unmentioned by
+the protocol. `data/cases/*/source_drafts/` is a special case in the other
+direction — the generator **does** read it, because that is where the documents
+come from, and strips the `[SNIPPET]` marker lines on the way into the packet.
+The originals keep them.
+
+The table is today's instance of the rule, not the rule. **The rule is: do not
+open any file that quotes an event title for Case 1 or Case 2.** Where that
+cannot be determined without opening the file, the file is not opened.
+
+### Status at the time of this amendment
+
+Registered **before any blind label exists**, exactly as the original was.
+`blind_labels.json` is still the pristine generated template for both cases, and
+`scripts/compare-relabel.ts` has not been run. Like the text above, this
+amendment contains **zero results**.
+
+`lib/eval.ts` remains unmodified — sha256 `4540d12b…a09333`, 4900 bytes,
+re-verified at the time of writing and unchanged from registration.
