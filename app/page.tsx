@@ -1344,7 +1344,7 @@ function Section({
 }) {
   const bg =
     tone === "warm"
-      ? { backgroundColor: "#F5F5F0" }
+      ? { backgroundColor: "var(--color-base-warm)" }
       : tone === "surface"
         ? { backgroundColor: "var(--color-surface)" }
         : { backgroundColor: "var(--color-base)" };
