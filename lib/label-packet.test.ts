@@ -164,6 +164,34 @@ test("packetReadme: states the closed default verbatim, as the definition of wha
   assert.match(md, /Nothing is\s*\n?permitted by being absent from this list/);
 });
 
+test("SITTING_RULE_LINES: the closed default reaches the published copies, not only repository paths", () => {
+  // A PATH LIST CANNOT FORBID A URL. The rule closed "nothing else in this
+  // repository" — a statement about the working tree — while the protocol
+  // governing this sitting is also posted publicly on the issue tracker, in
+  // prose, saying there what the packet withholds. A literal reader is entitled
+  // to notice that a website is not a file in this repository, and putting the
+  // published document on the forbidden PATH list does not help: the entry
+  // closes the path, and the copy that leaks is not at a path.
+  //
+  // So the last clause is scoped to the DOCUMENT rather than to its location.
+  // Asserted on the constant, because the constant is the whole mechanism: one
+  // string, rendered by the README here and by the generator's handover banner
+  // in the end-to-end test below, so a clause cannot reach one surface only.
+  const rule = SITTING_RULE_LINES.join(" ");
+  assert.match(rule, /wherever these documents are also published/i, "the rule is still scoped to the working tree");
+  assert.match(rule, /issue tracker/i, "the rule does not reach the issue tracker");
+  assert.match(rule, /not a rule about paths/i, "the rule does not say that a path is not the boundary");
+  for (const c of CASES) {
+    const md = packetReadme(c, readmeDocs);
+    assert.ok(md.includes(SITTING_RULE_LINES.join("\n> ")), `${c}'s README does not carry the widened rule verbatim`);
+  }
+  // The widened clause must not itself become a pointer: naming the tracker is
+  // closing it, and a figure alongside would be the leak the closure is for.
+  // (The path-token and section-citation audits below bind the same prose; this
+  // is the count half, which they structurally cannot see.)
+  assert.doesNotMatch(rule, /\d/, "the rule states a number");
+});
+
 test("packetReadme: the forbidden list is not rendered as a numbered rule block", () => {
   // Shape, not wording. Numbering the list made it read as the enumeration OF
   // what is forbidden, which is what made a path's absence read as permission.
@@ -619,6 +647,15 @@ test("end-to-end: the generated packet leaks no title, no marker and no event co
     );
     assert.equal(run.status, 0, `generator exited ${run.status}\n${run.stderr}`);
     const stdout = run.stdout;
+
+    // ONE CONSTANT, TWO SURFACES — asserted on the real banner rather than on
+    // the source that prints it. The README's copy of the rule is checked at
+    // unit speed above; this is the other renderer, and a clause added to a
+    // README and forgotten in a handover banner is exactly the drift the shared
+    // constant exists to make impossible.
+    for (const line of SITTING_RULE_LINES) {
+      assert.ok(stdout.includes(line), `the handover banner dropped a line of THE RULE: ${line}`);
+    }
 
     // Second run over the packet just written. This is the configuration a
     // labeler actually hits when they regenerate, and it is the only one that
@@ -1210,6 +1247,63 @@ test("compare-relabel: the same invocation works once every packet is labeled", 
     assert.match(broken.stderr, /not valid JSON/);
     assert.doesNotMatch(broken.stdout, /not labeled yet/, "a corrupt file must not be called a template");
     assert.doesNotMatch(broken.stdout, /LABEL-SET CENSUS/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compare-relabel: one case's finished labels copied into another packet are refused at the gate", { skip: skipCompare }, () => {
+  // THE COPY ATTACK. The gate asks `labelingState`, which reads CONTENT, not
+  // identity — and `GtFileSchema` accepts any of the three case ids. So case1's
+  // finished label file copied into case2/ is schema-valid, reads as `labeled`,
+  // and opens the not-yet-run gate on a case nobody has labeled. Every section
+  // of the report then prints, case2's own per-type breakdown among them, to a
+  // labeler who still has case2 ahead of them: the same disclosure the gate
+  // exists to prevent, reached by copying a file instead of by running out of
+  // order. `scripts/validate-blind-labels.ts` caught it already — but that is a
+  // separate command with no enforced ordering, so it caught it only if someone
+  // ran it. `loadCase` now asserts `case_id` against the directory the file
+  // sits in, in the validator's own words, and the two surfaces say one thing.
+  const root = mkdtempSync(join(tmpdir(), "compare-relabel-copy-"));
+  try {
+    const finished = labeledJson("case1");
+    writeLabels(root, "case1", finished);
+    writeLabels(root, "case2", finished); // the copy, byte for byte
+
+    const r = runCompare(root);
+    assert.equal(r.status, 1, `a copied label file was accepted as case2's labeling\n${r.stdout}`);
+    assert.match(
+      r.stderr,
+      /case2\.case_id: is "case1" but this file sits in the case2 packet/,
+      "the refusal must use the validator's wording, so the two scripts say one thing",
+    );
+
+    // Refused BEFORE any report output — the point of closing it at the gate
+    // rather than downstream. Section by section, because each prints a count.
+    for (const section of [
+      /LABEL-SET CENSUS/,
+      /AGGREGATE/,
+      /PER-EVENT-TYPE/,
+      /TITLE-OVERLAP DISTRIBUTION/,
+      /MATCH-STATUS CHANGE/,
+      /FAILURE-CAUSE ATTRIBUTION/,
+      /loaded case1:/,
+      /loaded case2:/,
+    ]) {
+      assert.doesNotMatch(r.stdout, section, `the copy attack produced report output: ${section}`);
+    }
+    const answers = answerIntegers();
+    for (const n of standaloneIntegers(withoutOrdinals(r.stdout + r.stderr))) {
+      assert.ok(!answers.has(n), `the copy attack printed ${n}, which is an original event count`);
+    }
+
+    // The single-case form too. Asking for case1 must not skip the case holding
+    // the copy: every case is loaded, only the requested one is reported on.
+    const single = runCompare(root, "case1");
+    assert.equal(single.status, 1, `a single-case run skipped the copied file in the case it did not ask for\n${single.stdout}`);
+    assert.match(single.stderr, /case2\.case_id: is "case1"/);
+    assert.doesNotMatch(single.stdout, /LABEL-SET CENSUS/);
+    assert.doesNotMatch(single.stdout, /loaded case1:/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

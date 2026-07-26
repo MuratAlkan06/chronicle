@@ -262,10 +262,12 @@ function reportLeakSources(cases: CaseId[]): void {
   for (const line of SITTING_RULE_LINES) console.log(`  ${line}`);
   console.log("");
   console.log("  That is the protocol's own first line — label in one sitting, working ONLY from");
-  console.log("  the packet — stated as a closed default rather than as a list of forbidden files,");
-  console.log("  because the list has been wrong three times and each miss was a file nobody had");
-  console.log("  thought to name. Everything the labeler needs is inlined in the packet, which is");
-  console.log("  what makes a closed default liveable rather than merely strict.");
+  console.log("  the packet — carried out to wherever these documents are also published, because");
+  console.log("  a rule about files does not reach a copy that is not a file. Stated as a closed");
+  console.log("  default rather than as a list of forbidden files, because the list has been wrong");
+  console.log("  three times and each miss was a file nobody had thought to name. Everything the");
+  console.log("  labeler needs is inlined in the packet, which is what makes a closed default");
+  console.log("  liveable rather than merely strict.");
   console.log("");
   console.log("  The paths below are EXAMPLES OF WHAT THE RULE CLOSES, not the rule. Nothing is");
   console.log("  permitted by being absent from them. This generator cannot read any of them and");

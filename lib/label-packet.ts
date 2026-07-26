@@ -572,6 +572,16 @@ export function docOrder(filename: string): number {
 // else" costs them nothing they need. If a packet ever fails to carry something
 // the labeler genuinely requires, the fix is to inline it, never to reopen a
 // path.
+//
+// AND IT IS NOT A RULE ABOUT PATHS, because a path list cannot forbid a URL.
+// The rule closed "nothing else in this repository", which is a statement about
+// the working tree — while the protocol governing this sitting is also POSTED,
+// publicly, on the issue tracker, in prose, stating there what the packet
+// withholds. A literal reader is entitled to observe that a website is not a
+// file in this repository. Closing every path and leaving the published copy of
+// the same document open closes nothing, so the last clause is scoped to the
+// DOCUMENT rather than to its location. This is the closed default's own logic
+// applied one level out: a surface nobody thought to name is already closed.
 // ---------------------------------------------------------------------------
 
 /** THE rule, pre-wrapped so the README and the terminal banner render the same
@@ -580,7 +590,11 @@ export const SITTING_RULE_LINES: string[] = [
   "THE RULE. During this sitting you read this packet and the case PDFs it points",
   "you to. Nothing else in this repository — no file, no directory, no document,",
   "no script, no comment — without exception, and regardless of whether it looks",
-  "harmless.",
+  "harmless. And nothing else WHEREVER THESE DOCUMENTS ARE ALSO PUBLISHED: not the",
+  "issue tracker or its comments, not a pull request, not a wiki, not a chat log,",
+  "not a pasted copy. The protocol for this sitting is posted there in prose and",
+  "says in words what this packet withholds. A path is not the only way to reach a",
+  "document, so this is not a rule about paths.",
 ];
 
 // ---------------------------------------------------------------------------
@@ -640,14 +654,16 @@ byte of any of them is in this packet. It cannot stop *you* opening them.
 ${theRule}
 
 That is the protocol's own first line — *label in one sitting, working **only**
-from the packet* — and it is stated as a closed default rather than as a list of
-forbidden files **because the list has been wrong three times.** Each time it was
-assembled, checked and posted; each time something nobody had thought to name
-turned out to carry the answer. The most recent one was the protocol document
-describing the leak, which had come to state the withheld figures in plain prose
-in the course of describing them accurately. So you are not being asked to judge
-whether some other file is safe. **A file nobody thought to name is already
-closed, because everything is closed.**
+from the packet* — carried out to wherever these documents are also published,
+because a rule about files does not reach a copy that is not a file. It is
+stated as a closed default rather than as a list of forbidden files **because
+the list has been wrong three times.** Each time it was assembled, checked and
+posted; each time something nobody had thought to name turned out to carry the
+answer. The most recent one was the protocol document describing the leak,
+which had come to state the withheld figures in plain prose in the course of
+describing them accurately. So you are not being asked to judge whether some
+other file is safe. **A file nobody thought to name is already closed, because
+everything is closed.**
 
 **What is open — exhaustively:**
 

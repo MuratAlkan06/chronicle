@@ -81,6 +81,16 @@
  * and is not called a template: it reaches `loadCase`, which exits 1 naming the
  * parse error.
  *
+ * ONE MORE THING THE GATE CANNOT SEE, AND `loadCase` NOW CAN: a label file
+ * belonging to a DIFFERENT case. `labelingState` reads content, not identity, so
+ * one case's finished labels copied into the other's packet directory reads as
+ * `labeled` and opens this gate on a case nobody has labeled. `loadCase` asserts
+ * `case_id` against the directory the file sits in and exits 1, in the same
+ * words `scripts/validate-blind-labels.ts` uses. The validator caught this
+ * already; it is a separate command with no enforced ordering, and a control
+ * that holds only if someone remembers to run a second script is not the one to
+ * rely on for the disclosure this whole gate exists to prevent.
+ *
  * THERE IS NO `--sitting-over`-STYLE OVERRIDE, and the asymmetry with
  * `scripts/check-label-leaks.ts` is deliberate — but narrower than this header
  * used to claim. That gate needs a flag because its refusal never clears on its
@@ -313,6 +323,22 @@ function loadCase(caseId: CaseId, packetRoot: string): LoadedCase {
       `${caseId}: ${blindPath} is not a valid label file — run ` +
         `npx tsx scripts/validate-blind-labels.ts ${caseId} for the per-field report`,
     );
+  }
+
+  // THE COPY ATTACK, closed at the gate rather than only downstream.
+  // `GtFileSchema` accepts any of the three case ids, so one case's FINISHED
+  // label file copied into another case's packet directory is schema-valid,
+  // reads as `labeled`, and opens the not-yet-run gate for a case nobody has
+  // labeled — after which this tool scores that case's cached predictions
+  // against the wrong case's labels and prints its per-type breakdown to a
+  // labeler who still has it ahead of them. That is the same disclosure the
+  // gate above exists to prevent, arrived at by copying a file instead of by
+  // running out of order. `scripts/validate-blind-labels.ts` catches it, but it
+  // is a separate command with no enforced ordering, so catching it only there
+  // is catching it only if someone runs it. Same message as the validator's, so
+  // the two surfaces say one thing.
+  if (blind.data.case_id !== caseId) {
+    die(`${caseId}.case_id: is "${blind.data.case_id}" but this file sits in the ${caseId} packet`);
   }
 
   return {
