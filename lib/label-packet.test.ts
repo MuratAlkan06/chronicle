@@ -883,6 +883,160 @@ test("check-label-leaks: still runs before the sitting, which is where the proto
   }
 });
 
+// ---------------------------------------------------------------------------
+// THE RESCORER'S OWN SITTING GATE.
+//
+// `scripts/compare-relabel.ts` IS the anchor: its sections print each label
+// set's in-scope count, the per-type `n_gt` breakdown and the overlap-band
+// distribution, for the ORIGINAL labels as well as the blind ones. Its
+// single-case form is documented, supported usage and the packet README names
+// the script to the labeler — so `compare-relabel.ts case1` used to hand a
+// labeler who had finished case1 the full case1 report while case2 was still
+// untouched, contaminating a case they had not started. Direct disclosure from
+// an authorized command, run out of order, and unrecoverable.
+//
+// The gate is therefore evaluated over EVERY case rather than over the
+// requested ones, using the same `sittingState` predicate as the two guards
+// above. Exercised through the REAL script, for the reason the leak-gate block
+// states: the property is not "the predicate returned pristine" but "no count
+// reached the terminal".
+// ---------------------------------------------------------------------------
+
+function runCompare(packetRoot: string, ...args: string[]): { status: number | null; stdout: string; stderr: string } {
+  const r = spawnSync(
+    join(REPO_ROOT, "node_modules", ".bin", "tsx"),
+    [join(REPO_ROOT, "scripts", "compare-relabel.ts"), ...args, `--packet=${packetRoot}`],
+    { cwd: REPO_ROOT, encoding: "utf8", timeout: 120_000 },
+  );
+  return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+}
+
+/** A structurally valid, wholly synthetic blind-label file — enough to put a
+ * packet into the "labeled" state. Nothing in it is read from the original
+ * labels; being wrong about the case is fine and being derived from it is not. */
+function labeledJson(caseId: CaseId): string {
+  return (
+    JSON.stringify(
+      {
+        case_id: caseId,
+        patient: "SYNTHETIC FIXTURE PATIENT",
+        labeled_at: "2026-07-26T00:00:00Z",
+        labeler_notes: "fixture for the compare-relabel sitting gate; not a real labeling",
+        events: [
+          {
+            id: "gt_001",
+            date: "2024-01-01",
+            date_confidence: "exact",
+            event_type: "visit",
+            title: "synthetic fixture label deliberately matching nothing",
+            source_document: "d1_synthetic_fixture.pdf",
+            in_scope: true,
+          },
+        ],
+      },
+      null,
+      2,
+    ) + "\n"
+  );
+}
+
+/** Every integer that IS an answer about the original labels. Same construction
+ * as the packet inverter's, loaded at runtime so this file holds no count. */
+function answerIntegers(): Set<number> {
+  const out = new Set<number>();
+  let total = 0;
+  let inScope = 0;
+  for (const c of CASES) {
+    const gt: { events: Array<{ in_scope: boolean }> } = JSON.parse(
+      readFileSync(join(REPO_ROOT, "data", "cases", c, "ground_truth.json"), "utf8"),
+    );
+    out.add(gt.events.length);
+    out.add(gt.events.filter((e) => e.in_scope).length);
+    total += gt.events.length;
+    inScope += gt.events.filter((e) => e.in_scope).length;
+  }
+  out.add(total);
+  out.add(inScope);
+  return out;
+}
+
+const predictionsPresent = CASES.every((c) => existsSync(join(REPO_ROOT, "data", "cases", c, "events.json")));
+const skipCompare =
+  !gtPresent || !predictionsPresent
+    ? "data/cases/*/{ground_truth,events}.json not present in this checkout"
+    : false;
+
+test("compare-relabel: a single-case run reports nothing while any other packet is unlabeled", { skip: skipCompare }, () => {
+  const root = mkdtempSync(join(tmpdir(), "compare-relabel-gate-"));
+  try {
+    // The scenario the gate exists for: case1 finished, case2 not started, and
+    // the labeler types the single-case invocation the script's own header
+    // offers them.
+    writeLabels(root, "case1", labeledJson("case1"));
+    writeLabels(root, "case2", templateJson("case2"));
+
+    const r = runCompare(root, "case1");
+    assert.equal(r.status, 0, `the gate must stay exit-0 — not-yet-run is a state, not an error\n${r.stderr}`);
+    assert.match(r.stdout, /nothing to compare yet/);
+    assert.match(r.stdout, /still the template\s+\S*case2[/\\]blind_labels\.json/, "the refusal must name the unlabeled packet");
+
+    // Not one section of the report was produced. Asserted section by section
+    // rather than on the banner alone: each of these prints a count.
+    for (const section of [
+      /LABEL-SET CENSUS/,
+      /AGGREGATE/,
+      /PER-EVENT-TYPE/,
+      /TITLE-OVERLAP DISTRIBUTION/,
+      /MATCH-STATUS CHANGE/,
+      /FAILURE-CAUSE ATTRIBUTION/,
+      /loaded case1:/,
+    ]) {
+      assert.doesNotMatch(r.stdout, section, `a refused run produced report output: ${section}`);
+    }
+
+    // And the property those sections are a proxy for: no answer-bearing
+    // integer reached the terminal at all. Ordinals are stripped first — the
+    // refusal ends with a numbered four-step sequence.
+    const answers = answerIntegers();
+    const printed = withoutOrdinals(r.stdout + r.stderr);
+    for (const n of standaloneIntegers(printed)) {
+      assert.ok(!answers.has(n), `a refused run printed ${n}, which is an original event count`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("compare-relabel: the same invocation works once every packet is labeled", { skip: skipCompare }, () => {
+  // The gate must not cost the tool its legitimate use, and it is SELF-CLEARING
+  // — which is why there is no `--sitting-over`-style override here. The moment
+  // every packet is labeled the per-case run works, with no flag and no
+  // operator assertion.
+  const root = mkdtempSync(join(tmpdir(), "compare-relabel-open-"));
+  try {
+    writeLabels(root, "case1", labeledJson("case1"));
+    writeLabels(root, "case2", labeledJson("case2"));
+
+    const r = runCompare(root, "case1");
+    assert.equal(r.status, 0, `the rescorer refused a fully labeled packet\n${r.stderr}`);
+    assert.doesNotMatch(r.stdout, /nothing to compare yet/);
+    assert.match(r.stdout, /LABEL-SET CENSUS/);
+    assert.match(r.stdout, /loaded case1:/);
+    assert.doesNotMatch(r.stdout, /loaded case2:/, "a single-case run must still report only the case asked for");
+
+    // A half-written label file in a case you did NOT ask for is refused rather
+    // than skipped: the gate tests whether labeling has started, and only the
+    // schema check catches a sitting that started and did not finish.
+    writeLabels(root, "case2", templateJson("case2").replace(PLACEHOLDER_PATIENT, "REDACTED PATIENT, 54F"));
+    const mid = runCompare(root, "case1");
+    assert.equal(mid.status, 1, `a one-keystroke edit to case2 reopened the case1 report\n${mid.stdout}`);
+    assert.match(mid.stderr, /case2: .*is not a valid label file/);
+    assert.doesNotMatch(mid.stdout, /LABEL-SET CENSUS/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("check-label-leaks: --sitting-over reopens it once the sitting cannot be protected", { skip: skipGate }, () => {
   // After compare-relabel.ts has run, contamination is no longer preventable and
   // this is a maintenance check again. compare-relabel.ts writes no artifact, so

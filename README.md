@@ -103,8 +103,10 @@ npx tsx scripts/cache-report.ts
 #    (docs/RESOLVED-DECISIONS.md #13 explains why not).
 npx tsx scripts/check-label-leaks.ts
 
-# 1. Write label_packet/<case>/ — documents with the [SNIPPET] answer key
-#    stripped, the labeling protocol, and an empty blind_labels.json.
+# 1. Write label_packet/<case>/ — the labeling protocol and an empty
+#    blind_labels.json, and nothing else. The packet ships NO documents: the
+#    labeler reads data/cases/<case>/docs/*.pdf in place, because a derived
+#    copy of a document is a second ledger for that document's event count.
 #    Gitignored working material. Refuses to clobber a sitting in progress.
 npx tsx scripts/make-label-packet.ts
 

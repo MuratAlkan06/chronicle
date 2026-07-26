@@ -24,6 +24,44 @@
  * labels do not exist yet it explains that and exits 0: the experiment has not
  * been run, which is not an error.
  *
+ * ---------------------------------------------------------------------------
+ * IT REPORTS NOTHING UNTIL **EVERY** PACKET IS LABELED, WHICHEVER CASES YOU ASK
+ * FOR. That is a leak control, not a convenience, and it is the last of the
+ * answer-bearing tools in this toolkit to get one.
+ *
+ * This script IS the anchor the packet is built to withhold. Section [0] prints
+ * each label set's in-scope count, section [2] the per-type `n_gt` breakdown,
+ * section [3] the overlap-band distribution — for the ORIGINAL labels as well as
+ * the blind ones. The packet README calls that count "the one quantity the
+ * packet refuses to restate in any form", and forbids `metadata.json` and
+ * `docs/CASES.md` over it.
+ *
+ * The single-case form below is documented, supported usage, and the packet
+ * README names this script to the labeler by name. So a labeler who finishes
+ * case1, is curious, and types the invocation this header offers used to be
+ * handed case1's original event count and type breakdown while the other case
+ * was still ahead of them — contaminating a case they had not started. Nothing
+ * reverse-engineered: direct disclosure, from an authorized command, run out of
+ * order. And unrecoverable, because a human cannot be re-blinded.
+ *
+ * So the not-yet-run gate in `main` is evaluated over ALL_CASES regardless of
+ * which cases were requested, and every case is LOADED (its blind labels
+ * schema-checked) even when only one is reported on — a half-written label file
+ * in a case you did not ask for is refused rather than skipped. The "has
+ * labeling started?" test is `sittingState` from lib/label-packet.ts, the same
+ * predicate the generator's clobber guard and `scripts/check-label-leaks.ts`'s
+ * sitting guard use, rather than a fourth local implementation of it.
+ *
+ * THERE IS NO `--sitting-over`-STYLE OVERRIDE, and the asymmetry with
+ * `scripts/check-label-leaks.ts` is deliberate. That gate needs one because its
+ * refusal never clears on its own: this script writes no artifact, so nothing on
+ * disk can ever tell it the sitting is over, and without a flag its legitimate
+ * post-sitting run would be blocked forever. This gate is SELF-CLEARING — the
+ * moment every packet is labeled it opens, which is exactly when the legitimate
+ * per-case re-run happens. An override here would buy no legitimate use and
+ * would hand a curious labeler the one affordance the guard exists to remove.
+ * ---------------------------------------------------------------------------
+ *
  * READ THIS BEFORE READING ITS NUMBERS — three confounds it reports rather than
  * silently absorbs, because each moves F1 for reasons that are not phrasing:
  *   (a) in_scope. The FN denominator is the in-scope GT count. If the blind
@@ -40,7 +78,9 @@
  *
  * Usage:
  *   npx tsx scripts/compare-relabel.ts                    # case1 + case2
- *   npx tsx scripts/compare-relabel.ts case1
+ *   npx tsx scripts/compare-relabel.ts case1              # reports case1 only —
+ *                                                         # still requires EVERY
+ *                                                         # packet to be labeled
  *   npx tsx scripts/compare-relabel.ts --packet=/tmp/pkt
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -55,6 +95,7 @@ import {
   type TierResult,
 } from "../lib/eval";
 import { normalize } from "../lib/normalize";
+import { sittingState } from "../lib/label-packet";
 import {
   CaseFixtureSchema,
   EventTypeSchema,
@@ -159,8 +200,6 @@ const GtFileSchema = z.object({
   events: z.array(GtEventSchema),
 });
 
-const STUB_KEY = "_comment_DELETE_THIS_BEFORE_LABELING";
-
 interface LoadedCase {
   caseId: CaseId;
   predicted: TimelineEvent[];
@@ -181,13 +220,26 @@ function loadJson(path: string): unknown {
   }
 }
 
-/** True when the file is still the untouched packet template. */
-function isTemplate(raw: unknown): boolean {
-  const events = (raw as { events?: unknown[] }).events;
-  if (!Array.isArray(events)) return false;
-  return events.some(
-    (e) => e && typeof e === "object" && STUB_KEY in (e as Record<string, unknown>),
-  );
+/**
+ * A file's contents, or `undefined` when there is nothing readable there.
+ *
+ * `undefined` is what `sittingState` reads as "absent", and an unreadable file
+ * is deliberately reported the same way: this gate has no basis on which to call
+ * such a file labeled, and the safe landing state is "not yet".
+ *
+ * This exists so the gate can use the SHARED pristine test. It replaced a local
+ * stub-key probe, which was a second implementation of "has labeling started?"
+ * and could be argued with — a labeler who deletes the stub object and stops
+ * looks labeled to it. `sittingState` compares against the exact bytes this repo
+ * would generate for that case, which is the test the generator's clobber guard
+ * and `scripts/check-label-leaks.ts`'s sitting guard already answer with.
+ */
+function readIfPossible(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return undefined;
+  }
 }
 
 function loadCase(caseId: CaseId, packetRoot: string): LoadedCase {
@@ -893,17 +945,18 @@ function main(): void {
   }
   const requested = ids as CaseId[];
 
-  // ---- The not-yet-run gate. Exits 0: "the experiment has not happened" is a
-  // state, not an error. -----------------------------------------------------
+  // ---- The not-yet-run gate. Evaluated over ALL_CASES, never over `requested`
+  // — see the header. A per-case run while another packet is unlabeled would
+  // disclose the requested case's counts to a labeler who still has the other
+  // case to do, and that is the anchor the whole packet is built to withhold.
+  // Exits 0: "the experiment has not happened" is a state, not an error. ------
   const missing: string[] = [];
   const unlabeled: string[] = [];
-  for (const caseId of requested) {
+  for (const caseId of ALL_CASES) {
     const p = join(packetRoot, caseId, "blind_labels.json");
-    if (!existsSync(p)) {
-      missing.push(p);
-    } else if (isTemplate(loadJson(p))) {
-      unlabeled.push(p);
-    }
+    const state = sittingState(readIfPossible(p), caseId);
+    if (state === "absent") missing.push(p);
+    else if (state === "pristine") unlabeled.push(p);
   }
   if (missing.length > 0 || unlabeled.length > 0) {
     console.log(rule("="));
@@ -911,6 +964,14 @@ function main(): void {
     console.log(rule("="));
     for (const p of missing) console.log(`  no blind labels at   ${p}`);
     for (const p of unlabeled) console.log(`  still the template   ${p}`);
+    console.log("");
+    console.log(
+      `  Checked over EVERY case (${ALL_CASES.join(", ")}), whichever ones you asked for. A`,
+    );
+    console.log("  single-case run while another packet is still unlabeled would print that case's");
+    console.log("  event counts and per-type breakdown — the anchor the packet exists to withhold");
+    console.log("  — to a labeler who has the other case still ahead of them. So nothing is");
+    console.log("  reported until every packet is labeled.");
     console.log("");
     console.log("  This tool measures the delta between the ORIGINAL labels and labels written");
     console.log("  by someone who has not seen the model output (issue #24). Until those blind");
@@ -927,7 +988,15 @@ function main(): void {
     return;
   }
 
-  const cases = requested.map((c) => loadCase(c, packetRoot));
+  // EVERY case is loaded, only the requested ones are reported on. The gate
+  // above tests whether labeling has STARTED; `loadCase`'s schema check is what
+  // tests whether it produced a usable file. Loading all of them closes the
+  // one-keystroke bypass — a template with a single character typed into it is
+  // no longer pristine, so the gate opens, and only this parse catches that the
+  // sitting is still live.
+  const cases = ALL_CASES.map((c) => loadCase(c, packetRoot)).filter((c) =>
+    requested.includes(c.caseId),
+  );
 
   console.log(rule("="));
   console.log(`${TAG} blind relabel rescoring — issue #24, Cases 1+2 only, no network`);
