@@ -421,9 +421,23 @@ optional.
 
 ## 7. What the title-overlap gate actually measures (Cases 1+2 diagnostic)
 
-Issue #22. Every number in this section is output of
+Issue #22. Except for the four carve-outs listed immediately below, every
+figure in this section is **emitted at runtime** by
 `npx tsx scripts/analyze-title-overlap.ts`, a read-only diagnostic over the
-cached dev cases. It runs no model, opens nothing under `held_out/`, and is
+cached dev cases, and can be reproduced by running it and reading the section
+it names. Anything that is *not* the script's output is one of these four, and
+each is marked again where it appears:
+
+1. **The mirror's source-identity sha256** (`e928483d…c5da`) — obtained by
+   hashing the renamed helper block, not printed by the script at runtime.
+2. **STATE cycle 12's pre/post-v4 Case 1 recall** (0.77 → 0.92) — cited from
+   that cycle's record; it is a measurement of a *prompt change*, not of this
+   gate.
+3. **The dev GT `date_confidence` census** — read directly off the dev fixtures
+   and recorded in §5's correction note.
+4. **The published Case 3 aggregates** — restated from STATE cycles 16/17/19.
+
+The script runs no model, opens nothing under `held_out/`, and is
 not a CI gate. It exits 0 regardless of what it *finds* — no finding is ever
 treated as a failure — but exits non-zero on invalid input, including a case
 name it refuses to read. **Case 3 was not measured for this section and
@@ -482,9 +496,12 @@ said the constraint "rejects zero candidate pairs on Cases 1+2". That is
 false; it conflated *unmatched GT events attributable to overlap* at k=all,
 which is genuinely zero (see the attribution table below), with *candidate
 pairs rejected*, which is not. The conclusion is unaffected, for the reason
-given below.]** Of the 24 (prediction, GT) pairs that clear `event_type`
-**and** the strict date tier, the overlap gate rejects **4** of them
-(16.7%) — all four case1 `lab` pairs, all four at overlap **0.000**:
+given below.]** The diagnostic's section [6] censuses the population in which
+the gate can be observed firing at all — every (prediction, in-scope GT) pair
+that clears `event_type` **and** the date tier, which is the only population
+where "the gate rejected this pair" is a meaningful statement. Of those **24**
+pairs the overlap gate rejects **4** (**16.7%**), identically under both tiers.
+All four are case1 `lab` pairs and all four sit at overlap **0.000**:
 
 | predicted title                | GT title                          |
 |--------------------------------|-----------------------------------|
@@ -495,15 +512,32 @@ given below.]** Of the 24 (prediction, GT) pairs that clear `event_type`
 
 What is true is that **none of those rejections is outcome-relevant**: in each
 one the correct GT was still available to the correct prediction, so removing
-the gate entirely leaves `tp`/`fp`/`fn` unchanged. That is not an artifact of
-fixture ordering — the counts are identical gated vs title-blind across **400
-seeded shuffles of both arrays** (0 mismatches), which closes off the most
-plausible way a greedy-matching null result like this could be fake. The
-pairings are identical in the fixture ordering; under shuffled orderings they
-can differ (170 of those same 400 trials), always on `gt_002` / `gt_011` /
-`gt_012` — the three GT events in the table above — because blinding makes
-those four rejected predictions eligible and array order then decides which
-one claims the GT. **The counts never move.**
+the gate entirely leaves `tp`/`fp`/`fn` unchanged.
+
+That is not an artifact of fixture ordering, and the diagnostic's section [7]
+is what establishes it. `evaluate()` is a *greedy* 1-1 matcher, so array order
+is a real degree of freedom; section [7] therefore reshuffles **both** arrays
+under a seeded PRNG (mulberry32, fixed base seed, so the output is byte-stable
+across runs) and rescores gated vs title-blind through the production
+`evaluate()` on every trial — **2000 trials × 2 tiers × 2 cases = 8000
+rescorings, 0 count mismatches**. That closes off the most plausible way a
+greedy-matching null result like this could be fake.
+
+The *pairings* behave differently, and the difference is the interesting part.
+In the fixtures' own ordering they are identical — section [7] reports
+`pairings identical=true` on all four (tier, case) combinations, which is
+strictly stronger than the count identity the title-blind block reports. Under
+shuffled orderings they diverge on **3336 of the 8000 rescorings (41.7%)** —
+all of them in case1, none in case2 — and every divergence lands on `gt_002`
+(1349 trials), `gt_011` (987) or `gt_012` (987), the three GT events in the
+table above, because blinding makes those four rejected predictions eligible
+and array order then decides which one claims the GT. **The counts never
+move.**
+
+Pairing identity here is keyed on each prediction's **pre-shuffle array
+index**, never on its title. That is not a detail: title-blinding rewrites
+every title to one constant, so a title-keyed comparison makes all predictions
+indistinguishable and reports spurious agreement.
 
 The published dev headline (macro-mean strict F1 **0.825**, reproduced exactly
 by this diagnostic) is therefore a measurement of `event_type` + exact-day
@@ -526,8 +560,11 @@ from (STATE cycle 16, README) — and given that prompt iteration explicitly
 tuned title *format* against these labels: STATE cycle 12 records v4's per-type
 Title templates lifting C1 recall 0.77 → 0.92 because the inlined
 `"HbA1c — <result> %"` format "produced GT-exact lab titles … matching the GT
-verbatim". Fitting the prediction's phrasing to the label's phrasing raises
-this metric by construction.
+verbatim". (**Carve-out 2.** That 0.77 → 0.92 is cycle 12's measurement of a
+prompt change, quoted from STATE; it is not emitted by this section's script,
+which never runs a model and knows nothing about prompt versions.) Fitting the
+prediction's phrasing to the label's phrasing raises this metric by
+construction.
 
 ### Sensitivity to label phrasing
 
@@ -615,8 +652,12 @@ unsafe against this matcher.
 labeler to record a month-only date as `2024-03-01` with
 `date_confidence: approximate`, and closes: *"The matching algorithm is
 calibrated for this."* It is not. `matchesEvent` never reads `date_confidence`
-at all — the field is required by the tool schema (`lib/schema.ts`) on
-predictions and labels alike, and the matcher discards it on both sides. There
+at all. The field is mandatory on both sides, but by two different mechanisms:
+on **predictions** by the model tool schema's `required` list
+(`lib/schema.ts:190`), and on **labels** by the `GtEvent` interface
+(`lib/eval.ts:19`), which is a TypeScript-only requirement with no runtime zod
+counterpart — `CaseFixtureSchema` (`lib/schema.ts:84`) validates fixture
+`events`, not ground truth. The matcher discards the field on both sides. There
 is no widening of date tolerance for an approximate date anywhere in
 `lib/eval.ts`. Strict requires `diffDays === 0`, so a month-only label parked on
 the 1st matches only if the model independently emits that same day; loose's ±3
@@ -628,9 +669,13 @@ instruction stands** — `2024-03-01` + `approximate` is correct labeling and
 inventing a specific day would be worse; only the closing assurance is wrong.
 
 **Item 4's confound is unconditional; item 5's is conditional and unverified.**
-Every label has a title, so the overlap gate was in force on every match
-decision ever made against Case 3; what is unmeasured there is the *magnitude*
-of the resulting bias, not whether the gate applied. Item 5's confound bites only if Case 3's labels contain
+Every label has a title, so **no Case 3 label was exempt** from the overlap
+gate. Stated precisely: `matchesEvent` short-circuits on `event_type` *before*
+the overlap test (`lib/eval.ts:81`), so the gate is never reached on a
+cross-type pair — but a cross-type pair can never become a match anyway, and
+every pair that could, i.e. every same-type candidate, had to clear the gate.
+What is unmeasured on Case 3 is the *magnitude* of the resulting bias, not
+whether the gate applied. Item 5's confound bites only if Case 3's labels contain
 any approximate or inferred dates, which cannot be established without opening
 the held-out ground truth (§6 forbids it), so whether item 5 is a Case 3
 confound **at all** is unknown and stays unknown. This section's own instrument
@@ -638,10 +683,13 @@ does not corroborate item 5 either: the attribution table's `date` column is
 constant at 2 at every level, and both misses are disagreements on
 exact-confidence events (`Continue metformin 850 mg b.i.d.`, 306 days out;
 `Core needle biopsy scheduled`, 9 days out), not over-precision on an
-approximate label — the dev labels never exercise item 5's rule at all. (That
-last statement rests on the dev GT `date_confidence` census, which is read
-directly off the dev fixtures and recorded in §5's correction note; it is not
-one of this section's script-emitted numbers.) Item 4 is a measured mechanism
+approximate label — the dev labels never exercise item 5's rule at all.
+(**Carve-out 3.** *Both* of those clauses — that the two misses are on
+exact-confidence events, and that the dev labels never exercise item 5's rule —
+rest on the dev GT `date_confidence` census, which is read directly off the dev
+fixtures and recorded in §5's correction note; the census is not one of this
+section's script-emitted numbers. The two day distances, 306 and 9, *are*: they
+are the `dayDiff` column of the diagnostic's section [2].) Item 4 is a measured mechanism
 of unquantified magnitude on Case 3; item 5 is a documented mismatch between an
 instruction and the code, of unknown applicability to Case 3.
 
@@ -655,8 +703,13 @@ overlap-attributably when labels are re-phrased tersely, medication first.
 **Not measured, and deliberately not:** whether any of this is what happened on
 Case 3. Establishing that would require reading Case 3's per-event GT titles
 and its matched/unmatched lists — exactly the per-event error analysis §6
-forbids, against a budget of ≤1 remaining scored event. No number in this
-section came from `held_out/`.
+forbids, against a budget of ≤1 remaining scored event. **This diagnostic
+opened nothing under `held_out/`** — verified two ways, by the script's own
+case3 refusal and by the `fs` audit shim recorded in STATE cycle 24.
+(**Carve-out 4.** The Case 3 aggregates quoted immediately below are a
+different thing and are *not* covered by that statement: they are restated from
+STATE cycles 16/17/19, and they **originate** from scoring predictions against
+the held-out ground truth. Nothing in this section re-reads it.)
 
 **Consistent with, which is weaker than explains:** the published Case 3
 aggregates (STATE cycles 16/17/19) show `medication` at **P/R/F1 0/0/0** on the
@@ -682,7 +735,11 @@ npx tsx scripts/analyze-title-overlap.ts          # case1 + case2
 npx tsx scripts/analyze-title-overlap.ts case1    # one case
 ```
 
-It refuses `case3` by name (exit 1). `lib/eval.ts` keeps `titleTokens` and
+It refuses `case3` in **any argument spelling** — bare `case3`, `--case3`,
+`-case3`, `--case3=…`, any letter case — with exit 1. The guard runs on the raw
+`argv` *before* `--`-prefixed flags are filtered out, because a guard placed
+after that filter lets the flag form through silently and falls back to
+case1+case2. `lib/eval.ts` keeps `titleTokens` and
 `overlap` module-private, so the script re-implements those two leaf helpers
 locally and labels them a mirror; every match decision still goes through the
 exported `matchesEvent` / `evaluate` / `breakdown`.
@@ -692,7 +749,9 @@ agreement on dev: the two mirrored helpers are **byte-identical to the
 production source after renaming** (`titleTokensMirror` → `titleTokens`,
 `overlapMirror` → `overlap` — same sha256, `e928483d…c5da`). That makes them
 equivalent on *all* inputs, not merely on the dev fixtures, and it is the
-claim to check when `lib/eval.ts` changes.
+claim to check when `lib/eval.ts` changes. (**Carve-out 1.** That sha256 is
+obtained by hashing the renamed helper block; the script does not print it at
+runtime, so it is the one fidelity claim here you must re-derive by hand.)
 
 The report also opens with two runtime self-checks: the mirror agrees with
 production `matchesEvent` on **596/596** real (prediction, GT, tier) triples,
@@ -702,16 +761,21 @@ If either fails it prints loudly rather than reporting numbers.
 
 **The 596/596 check has a known blind spot and is not the fidelity argument.**
 It compares only the `≥ 0.5` **boolean** against production, while sections
-[1]–[3] report the mirror's **continuous** overlap values. Fault injection
-shows what it does and does not catch: dropping `.toLowerCase()` from the
-mirror is caught (590/596), but changing the mirror's denominator from `max`
-to `min` is **not** (596/596 still passes while silently corrupting the
-continuous values throughout, including the headline identical-token-set rate,
-57.9% → 73.7%), and neither is moving the threshold to 0.4 — no
-`event_type`-and-date-qualifying pair sits in `[0.4, 0.5)`, so the boolean
-never changes. The self-check cannot discriminate the `max`-vs-`min` property
-that
-the mechanism argument above rests on — only source identity does.
+[1]–[3] report the mirror's **continuous** overlap values. This is not an
+asserted caveat: the diagnostic's section [8] *injects* each fault at runtime,
+re-runs the identical check against the corrupted helper, and prints what the
+check catches and what it does not. Dropping `.toLowerCase()` from the mirror
+is caught (**590/596**). Changing the mirror's denominator from `max` to `min`
+is **not** — **596/596** still passes while the continuous values shift
+underneath it, including the headline identical-token-set rate among matched
+pairs, **57.9% (11/19) → 73.7% (14/19)**, a +15.8pp move behind a green
+tripwire. Moving the threshold to 0.4 is also not caught, and section [6]
+explains why in the same run: its `[0.4, 0.5)` band count is **0**, so no
+`event_type`-and-date-qualifying pair sits in the interval and the boolean
+cannot move. In every row the matched *pairs* are held fixed by the production
+`matchesEvent`; only the mirror's reported value changes. The self-check
+therefore cannot discriminate the `max`-vs-`min` property that the mechanism
+argument above rests on — only source identity does.
 
 ---
 

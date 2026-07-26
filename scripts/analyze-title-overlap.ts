@@ -20,7 +20,14 @@
  *   [4] a terseness perturbation study — shorten GT titles toward a head-noun
  *       form and recompute strict/loose P/R/F1 with the production evaluate();
  *   [5] failure-cause attribution for every unmatched in-scope GT event at
- *       each perturbation level (type / date / overlap / contention).
+ *       each perturbation level (type / date / overlap / contention);
+ *   [6] a census of the (prediction, GT) pairs that clear event_type and the
+ *       date tier, and how many of those the overlap gate then rejects;
+ *   [7] a seeded-shuffle invariance check — rescore gated vs title-blind under
+ *       N shuffles of both arrays, to show the null result in [title-blind] is
+ *       a property of the data and not of the fixtures' array ordering;
+ *   [8] fault injection against the mirror self-check, showing which mirror
+ *       corruptions the check catches and which pass straight through it.
  *
  * Usage:
  *   npx tsx scripts/analyze-title-overlap.ts
@@ -191,13 +198,29 @@ function loadCase(caseId: CaseId): LoadedCase {
 // the report's whole mechanism argument rests on. It catches gross tokenizer
 // divergence and nothing subtler. The fidelity argument is the source-identity
 // hash documented at the mirror definition above.
+//
+// The three fault-injection results quoted above are NOT hand-run claims: they
+// are re-derived at runtime by section [8], which drives `verifyMirrorWith`
+// below with each deliberately-corrupted helper and prints what the check does
+// and does not catch. That is why the check is parameterized.
 // ---------------------------------------------------------------------------
 interface MirrorCheck {
   pairsChecked: number;
   disagreements: string[];
 }
 
-function verifyMirror(cases: LoadedCase[]): MirrorCheck {
+type Tokenizer = (s: string) => Set<string>;
+type Overlapper = (a: Set<string>, b: Set<string>) => number;
+
+/** The mirror check, parameterized over the mirror's two leaf helpers and the
+ * threshold, so section [8] can re-run the identical comparison against
+ * corrupted variants. `verifyMirror` is this function at the real values. */
+function verifyMirrorWith(
+  cases: LoadedCase[],
+  tokenize: Tokenizer,
+  ov: Overlapper,
+  threshold: number,
+): MirrorCheck {
   const disagreements: string[] = [];
   let pairsChecked = 0;
   for (const c of cases) {
@@ -207,7 +230,7 @@ function verifyMirror(cases: LoadedCase[]): MirrorCheck {
           const prod = matchesEvent(p, g, tier);
           const mirrored =
             p.event_type === g.event_type &&
-            titleOverlap(p.title, g.title) >= THRESHOLD &&
+            ov(tokenize(p.title), tokenize(g.title)) >= threshold &&
             withinTier(dayDiff(p.date, g.date), tier);
           pairsChecked++;
           if (prod !== mirrored) {
@@ -222,6 +245,10 @@ function verifyMirror(cases: LoadedCase[]): MirrorCheck {
   return { pairsChecked, disagreements };
 }
 
+function verifyMirror(cases: LoadedCase[]): MirrorCheck {
+  return verifyMirrorWith(cases, titleTokensMirror, overlapMirror, THRESHOLD);
+}
+
 // ---------------------------------------------------------------------------
 // Greedy 1-1 pairing, mirroring the loop inside lib/eval.ts `evaluate()` so the
 // PAIRS can be recovered (evaluate() returns only counts). The match predicate
@@ -229,16 +256,21 @@ function verifyMirror(cases: LoadedCase[]): MirrorCheck {
 // this mirror reproduces evaluate()'s tp/fn exactly.
 // ---------------------------------------------------------------------------
 interface Pairing {
-  pairs: Array<{ pred: TimelineEvent; gt: GtEvent }>;
+  /** `predIdx` is the position of `pred` in the `predicted` array as passed in.
+   * Section [7] needs it: after a shuffle, array position is the only handle on
+   * a prediction's pre-shuffle identity that survives title-blinding (blinding
+   * rewrites every title to one constant, so titles cannot key anything). */
+  pairs: Array<{ pred: TimelineEvent; predIdx: number; gt: GtEvent }>;
   unmatchedGt: GtEvent[];
 }
 
 function greedyPairs(predicted: TimelineEvent[], gt: GtEvent[], tier: Tier): Pairing {
   const inScopeGt = gt.filter((g) => g.in_scope);
   const matchedGt = new Set<string>();
-  const pairs: Array<{ pred: TimelineEvent; gt: GtEvent }> = [];
+  const pairs: Array<{ pred: TimelineEvent; predIdx: number; gt: GtEvent }> = [];
 
-  for (const p of predicted) {
+  for (let i = 0; i < predicted.length; i++) {
+    const p = predicted[i];
     const candidates = inScopeGt.filter(
       (g) => !matchedGt.has(g.id) && matchesEvent(p, g, tier),
     );
@@ -249,7 +281,7 @@ function greedyPairs(predicted: TimelineEvent[], gt: GtEvent[], tier: Tier): Pai
     });
     if (candidates.length > 0) {
       matchedGt.add(candidates[0].id);
-      pairs.push({ pred: p, gt: candidates[0] });
+      pairs.push({ pred: p, predIdx: i, gt: candidates[0] });
     }
   }
 
@@ -1000,8 +1032,363 @@ function sectionAttribution(cases: LoadedCase[], keep: Map<string, Set<string>>)
 }
 
 // ---------------------------------------------------------------------------
+// Section 6 — rejected-candidate-pair census.
+//
+// "The gate rejected this pair" is only a meaningful statement about pairs the
+// gate is actually asked about. `matchesEvent` short-circuits on `event_type`
+// FIRST (lib/eval.ts:81), so it never evaluates overlap on a cross-type pair;
+// and the date tier is the remaining condition. The population in which the
+// overlap gate can be observed firing is therefore exactly the pairs that clear
+// event_type AND the tier's date tolerance. This section enumerates that
+// population and reports how much of it the overlap gate removes.
+//
+// It also reports the [0.4, 0.5) occupancy, which is what makes the
+// "threshold 0.5 -> 0.4 is not caught" fault-injection row in section [8] true:
+// if no qualifying pair sits in that band, moving the threshold cannot move the
+// boolean.
+// ---------------------------------------------------------------------------
+function sectionRejectedPairs(cases: LoadedCase[]): void {
+  head("[6] REJECTED-CANDIDATE-PAIR CENSUS — pairs clearing event_type + date tier, then failing overlap >= 0.5");
+  console.log("population = every (prediction, in-scope GT) pair with equal event_type AND dayDiff inside the tier");
+  console.log("rejected   = that pair's title overlap is < 0.5, i.e. matchesEvent returns false ON THE OVERLAP TEST");
+  console.log("band       = qualifying pairs with overlap in [0.4, 0.5) — the pairs a 0.4 threshold would newly admit");
+  console.log("");
+
+  const tiers = ["strict", "loose"] as Tier[];
+  for (let ti = 0; ti < tiers.length; ti++) {
+    const tier = tiers[ti];
+    if (ti > 0) console.log("");
+    let qualifying = 0;
+    let rejected = 0;
+    let band = 0;
+    let gateAgrees = 0;
+    const rows: string[] = [];
+
+    for (const c of cases) {
+      const inScopeGt = c.gt.filter((g) => g.in_scope);
+      for (const p of c.predicted) {
+        for (const g of inScopeGt) {
+          if (p.event_type !== g.event_type) continue;
+          if (!withinTier(dayDiff(p.date, g.date), tier)) continue;
+          qualifying++;
+          const ov = titleOverlap(p.title, g.title);
+          // Self-check: on this population the production predicate must be
+          // exactly the overlap test, since the other two conditions hold.
+          if (matchesEvent(p, g, tier) === (ov >= THRESHOLD)) gateAgrees++;
+          if (ov >= 0.4 && ov < THRESHOLD) band++;
+          if (ov >= THRESHOLD) continue;
+          rejected++;
+          rows.push(
+            `    ${pad(c.caseId, 6)}${pad(g.id, 8)}${pad(g.event_type, 11)}ov=${f3(ov)}  ` +
+              `PRED="${p.title}"  GT="${g.title}"`,
+          );
+        }
+      }
+    }
+
+    console.log(`  ── tier=${tier} ──`);
+    console.log(
+      `  qualifying (prediction, GT) pairs: ${qualifying}  ·  rejected by the overlap gate: ` +
+        `${rejected} (${pct(rejected, qualifying)})  ·  in [0.4, 0.5): ${band}`,
+    );
+    console.log(
+      `  self-check: production matchesEvent == (overlap >= 0.5) on ${gateAgrees}/${qualifying} ` +
+        `qualifying pairs: ${gateAgrees === qualifying ? "PASS" : "FAIL"}`,
+    );
+    if (rows.length > 0) {
+      console.log("  rejected pairs:");
+      for (const r of rows) console.log(r);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Section 7 — seeded-shuffle invariance.
+//
+// The title-blind null result (counts bit-identical gated vs title-blind) is
+// computed in the fixtures' own array ordering, and `evaluate()` is a GREEDY
+// 1-1 matcher, so array order is a real degree of freedom. This section shuffles
+// BOTH arrays under a deterministic seeded PRNG and rescores gated vs
+// title-blind through the production `evaluate()` on every trial, to check the
+// null result is a property of the data and not of the fixture ordering.
+//
+// KEYING. Pairing comparison must key on PRE-SHUFFLE IDENTITY. Title-blinding
+// rewrites every title to one constant, so keying a pairing on title makes all
+// predictions indistinguishable and reports spurious agreement. Each prediction
+// is therefore tagged with its pre-shuffle array index BEFORE shuffling; the tag
+// travels with the event through the shuffle, and the blind copy is built from
+// the same shuffled sequence, so `predIdx` from `greedyPairs` indexes both.
+// GT needs no tag: `gt.id` is already stable and unique within a case.
+//
+// Counts come from the production `evaluate()`. Pairings come from `greedyPairs`
+// (evaluate() returns only counts) — the PAIRING CHECK printed at the top of
+// this report is what licenses that substitution.
+// ---------------------------------------------------------------------------
+const SHUFFLE_TRIALS = 2000;
+const SHUFFLE_SEED = 0x5eed_1234;
+
+/** mulberry32 — small, deterministic, dependency-free. Chosen over Math.random
+ * so this section's output is byte-stable across runs and machines. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Fisher-Yates on a copy, drawing from `rnd`. */
+function shuffleWith<T>(xs: T[], rnd: () => number): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function sectionShuffleInvariance(cases: LoadedCase[]): void {
+  head(
+    `[7] SEEDED-SHUFFLE INVARIANCE — ${SHUFFLE_TRIALS} seeded shuffles of BOTH arrays, gated vs title-blind`,
+  );
+  console.log("count mismatch   = evaluate() tp/fp/fn differ between gated and title-blind on that trial");
+  console.log("pairing mismatch = the SET of (prediction, GT) pairs differs, keyed on pre-shuffle prediction");
+  console.log("                   index and gt.id (NOT on title — blinding erases titles by construction)");
+  console.log(`PRNG = mulberry32, base seed 0x${SHUFFLE_SEED.toString(16)}, seed folded with trial and case index.`);
+  console.log("Both tiers draw the same shuffles, so the strict/loose rows are a paired comparison.");
+  console.log("");
+
+  // Trial 0 of nothing: the fixtures' OWN ordering, unshuffled. The title-blind
+  // block above reports count identity here; this reports PAIRING identity,
+  // which is a strictly stronger statement and is claimed in docs/EVAL.md §7.
+  console.log("  fixture ordering (unshuffled), gated vs title-blind:");
+  for (const tier of ["strict", "loose"] as Tier[]) {
+    for (const c of cases) {
+      const tagged = c.predicted.map((ev, i) => ({ ev, uid: `p${i}` }));
+      const blindPredicted = tagged.map((x) => ({ ...x.ev, title: BLIND }));
+      const blindGround = blindGt(c.gt);
+      const real = evaluate(c.predicted, c.gt, tier);
+      const blind = evaluate(blindPredicted, blindGround, tier);
+      const countsSame = real.tp === blind.tp && real.fp === blind.fp && real.fn === blind.fn;
+      const rk = greedyPairs(c.predicted, c.gt, tier).pairs.map(
+        (x) => `${tagged[x.predIdx].uid}->${x.gt.id}`,
+      );
+      const bk = greedyPairs(blindPredicted, blindGround, tier).pairs.map(
+        (x) => `${tagged[x.predIdx].uid}->${x.gt.id}`,
+      );
+      const pairsSame = [...rk].sort().join("|") === [...bk].sort().join("|");
+      console.log(
+        `    ${pad(tier, 8)}${pad(c.caseId, 8)}counts identical=${pad(String(countsSame), 6)}` +
+          `pairings identical=${pairsSame}`,
+      );
+    }
+  }
+  console.log("");
+
+  console.log(
+    `  ${pad("tier", 8)}${pad("case", 8)}${padL("trials", 8)}${padL("countMism", 11)}${padL("pairMism", 10)}  GT ids involved in pairing differences`,
+  );
+  console.log(`  ${rule("-", 94)}`);
+
+  let totalCountMismatch = 0;
+  let totalPairMismatch = 0;
+  let totalTrials = 0;
+
+  for (const tier of ["strict", "loose"] as Tier[]) {
+    for (let ci = 0; ci < cases.length; ci++) {
+      const c = cases[ci];
+      // Tag BEFORE shuffling: array position is the stable identity handle.
+      const tagged = c.predicted.map((ev, i) => ({ ev, uid: `p${i}` }));
+      let countMismatch = 0;
+      let pairMismatch = 0;
+      const touched = new Map<string, number>();
+
+      for (let t = 0; t < SHUFFLE_TRIALS; t++) {
+        const rnd = mulberry32(
+          SHUFFLE_SEED ^ Math.imul(t + 1, 0x9e37_79b1) ^ Math.imul(ci + 1, 0x85eb_ca6b),
+        );
+        const sp = shuffleWith(tagged, rnd);
+        const sg = shuffleWith(c.gt, rnd);
+
+        const realPred = sp.map((x) => x.ev);
+        const blindPredicted = sp.map((x) => ({ ...x.ev, title: BLIND }));
+        const blindGround = blindGt(sg);
+
+        const real = evaluate(realPred, sg, tier);
+        const blind = evaluate(blindPredicted, blindGround, tier);
+        if (real.tp !== blind.tp || real.fp !== blind.fp || real.fn !== blind.fn) countMismatch++;
+
+        const realKeys = greedyPairs(realPred, sg, tier).pairs.map(
+          (x) => `${sp[x.predIdx].uid}->${x.gt.id}`,
+        );
+        const blindKeys = greedyPairs(blindPredicted, blindGround, tier).pairs.map(
+          (x) => `${sp[x.predIdx].uid}->${x.gt.id}`,
+        );
+        const realSet = new Set(realKeys);
+        const blindSet = new Set(blindKeys);
+        const symDiff = [
+          ...realKeys.filter((k) => !blindSet.has(k)),
+          ...blindKeys.filter((k) => !realSet.has(k)),
+        ];
+        if (symDiff.length > 0) {
+          pairMismatch++;
+          for (const id of new Set(symDiff.map((k) => k.split("->")[1]))) {
+            touched.set(id, (touched.get(id) ?? 0) + 1);
+          }
+        }
+      }
+
+      totalCountMismatch += countMismatch;
+      totalPairMismatch += pairMismatch;
+      totalTrials += SHUFFLE_TRIALS;
+
+      const ids = [...touched.entries()]
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+        .map(([id, n]) => `${id}(${n})`)
+        .join(" ");
+      console.log(
+        `  ${pad(tier, 8)}${pad(c.caseId, 8)}${padL(String(SHUFFLE_TRIALS), 8)}` +
+          `${padL(String(countMismatch), 11)}${padL(String(pairMismatch), 10)}  ${ids || "—"}`,
+      );
+    }
+  }
+
+  console.log(`  ${rule("-", 94)}`);
+  console.log(
+    `  TOTAL over ${totalTrials} (tier, case, trial) rescorings: count mismatches = ` +
+      `${totalCountMismatch}, pairing mismatches = ${totalPairMismatch} (${pct(totalPairMismatch, totalTrials)}).`,
+  );
+  console.log(
+    `  Reading: count mismatches ${totalCountMismatch === 0 ? "== 0" : "!= 0"} ⇒ the title gate's ` +
+      `contribution to tp/fp/fn is ${totalCountMismatch === 0 ? "zero regardless of array order" : "ORDER-DEPENDENT"}.`,
+  );
+  console.log(
+    `  Pairing mismatches are ${totalPairMismatch > 0 ? "non-zero" : "zero"}: under some orderings the gated and ` +
+      `blind matchers assign the SAME`,
+  );
+  console.log("  counts via DIFFERENT pairs, which is exactly what the rejected pairs in [6] make possible.");
+}
+
+// ---------------------------------------------------------------------------
+// Section 8 — mirror fault injection.
+//
+// Substantiates the "MIRROR CHECK has a known blind spot" claim by running the
+// same check against deliberately-corrupted mirror helpers. For each fault it
+// reports (a) whether the >= 0.5 BOOLEAN check catches it, and (b) what the
+// fault does to a CONTINUOUS value the report actually publishes — the
+// identical-token-set rate among strict-matched pairs from section [1].
+//
+// The matched PAIRS are held fixed by the production `matchesEvent` in every
+// row; only the mirror's reported value moves. That is the point: a fault can
+// leave the tripwire green while corrupting every number in sections [1]-[3].
+// ---------------------------------------------------------------------------
+/** FAULT: tokenizer loses `.toLowerCase()`. */
+function titleTokensNoLower(s: string): Set<string> {
+  return new Set(s.match(/[a-z0-9]+/g) ?? []);
+}
+
+/** FAULT: overlap denominator max -> min. This is the property the whole
+ * structural-ceiling argument rests on, so it is the one that must not slip. */
+function overlapMinDenom(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  const denom = Math.min(a.size, b.size);
+  return denom === 0 ? 0 : inter / denom;
+}
+
+/** Identical-token-set rate among strict-matched pairs, measured with an
+ * arbitrary tokenizer/overlap. Pairs come from production `matchesEvent`. */
+function tokenSetIdentityRate(
+  cases: LoadedCase[],
+  tokenize: Tokenizer,
+  ov: Overlapper,
+): { same: number; n: number } {
+  let same = 0;
+  let n = 0;
+  for (const c of cases) {
+    for (const { pred, gt } of greedyPairs(c.predicted, c.gt, "strict").pairs) {
+      n++;
+      if (ov(tokenize(pred.title), tokenize(gt.title)) === 1) same++;
+    }
+  }
+  return { same, n };
+}
+
+function sectionFaultInjection(cases: LoadedCase[]): void {
+  head("[8] MIRROR FAULT INJECTION — what the MIRROR CHECK boolean does and does not catch");
+  console.log("Each row re-runs the MIRROR CHECK from the top of this report with one helper corrupted.");
+  console.log("agree     = (prediction, GT, tier) triples where the corrupted mirror still matches production");
+  console.log("caught    = the check flags the fault (agree < total)");
+  console.log("tokenSet% = section [1]'s headline identical-token-set rate AMONG THE SAME production-matched");
+  console.log("            pairs, recomputed with the corrupted helper — a continuous value the report prints");
+  console.log("");
+
+  const variants: Array<{
+    label: string;
+    tokenize: Tokenizer;
+    ov: Overlapper;
+    threshold: number;
+  }> = [
+    { label: "none (real mirror)", tokenize: titleTokensMirror, ov: overlapMirror, threshold: THRESHOLD },
+    { label: "tokenizer drops .toLowerCase()", tokenize: titleTokensNoLower, ov: overlapMirror, threshold: THRESHOLD },
+    { label: "overlap denominator max -> min", tokenize: titleTokensMirror, ov: overlapMinDenom, threshold: THRESHOLD },
+    { label: "threshold 0.5 -> 0.4", tokenize: titleTokensMirror, ov: overlapMirror, threshold: 0.4 },
+  ];
+
+  const baseline = tokenSetIdentityRate(cases, titleTokensMirror, overlapMirror);
+
+  console.log(`  ${pad("injected fault", 34)}${padL("agree", 10)}${padL("caught", 9)}${padL("tokenSet%", 16)}${padL("Δ vs real", 11)}`);
+  console.log(`  ${rule("-", 80)}`);
+  for (const v of variants) {
+    const mc = verifyMirrorWith(cases, v.tokenize, v.ov, v.threshold);
+    const agree = mc.pairsChecked - mc.disagreements.length;
+    const rate = tokenSetIdentityRate(cases, v.tokenize, v.ov);
+    const delta = (100 * rate.same) / rate.n - (100 * baseline.same) / baseline.n;
+    console.log(
+      `  ${pad(v.label, 34)}${padL(`${agree}/${mc.pairsChecked}`, 10)}` +
+        `${padL(agree < mc.pairsChecked ? "YES" : "no", 9)}` +
+        `${padL(`${pct(rate.same, rate.n)} (${rate.same}/${rate.n})`, 16)}` +
+        `${padL(delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}pp`, 11)}`,
+    );
+  }
+  console.log(`  ${rule("-", 80)}`);
+  console.log(
+    "  The max->min row is the one that matters: it leaves the boolean check fully green while moving",
+  );
+  console.log(
+    "  the published identical-token-set rate. The MIRROR CHECK is a tripwire for gross tokenizer",
+  );
+  console.log(
+    "  divergence, NOT the fidelity argument — that is the source-identity hash at the mirror definition.",
+  );
+  console.log(
+    `  The threshold row is inert because no qualifying pair sits in [0.4, 0.5) — see the band count in [6].`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 function main(): void {
-  const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  const raw = process.argv.slice(2);
+
+  // Held-out guard runs FIRST, on the RAW argv, and matches case3 in any
+  // spelling. The flag filter below drops `--`-prefixed args, so a guard placed
+  // after it lets `--case3` through silently — the run would fall back to
+  // case1+case2 and exit 0 instead of refusing, contradicting the documented
+  // "refuses case3 by name (exit 1)" behavior.
+  const refuseCase3 = (a: string): boolean =>
+    a.replace(/^-+/, "").split("=")[0].toLowerCase() === "case3";
+  for (const a of raw) {
+    if (refuseCase3(a)) {
+      console.error(`${TAG} invalid case '${a}' — this diagnostic runs on case1/case2 only.`);
+      console.error(`${TAG} Case 3 is held out (docs/RESOLVED-DECISIONS.md #10) and is never read here.`);
+      process.exit(1);
+    }
+  }
+
+  const args = raw.filter((a) => !a.startsWith("--"));
   const ids = (args.length > 0 ? args : ALL_CASES) as string[];
   for (const a of ids) {
     if (a !== "case1" && a !== "case2") {
@@ -1086,6 +1473,9 @@ function main(): void {
   sectionCeiling(cases, best);
   sectionPerturbation(cases, keep);
   sectionAttribution(cases, keep);
+  sectionRejectedPairs(cases);
+  sectionShuffleInvariance(cases);
+  sectionFaultInjection(cases);
 
   console.log("");
   console.log(rule("="));
