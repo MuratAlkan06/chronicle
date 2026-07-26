@@ -693,27 +693,33 @@ function sectionTitleBlind(cases: LoadedCase[]): void {
   console.log("  TITLE-BLIND CEILING (all titles replaced by one constant ⇒ overlap ≡ 1.0, so the");
   console.log("  production gate reduces to event_type + date). Upper bound on what the title gate");
   console.log("  can cost, and the split between 'wrong event' and 'right event, different words':");
-  let sTp = 0;
-  let sFp = 0;
-  let sFn = 0;
-  const f1s: number[] = [];
-  for (const c of cases) {
-    const real = evaluate(c.predicted, c.gt, "strict");
-    const blind = evaluate(blindPred(c.predicted), blindGt(c.gt), "strict");
-    f1s.push(blind.f1);
-    sTp += blind.tp;
-    sFp += blind.fp;
-    sFn += blind.fn;
+  // Both tiers, so every (case, tier) combination the report claims is actually
+  // emitted here rather than inferred from the strict rows.
+  for (const tier of ["strict", "loose"] as Tier[]) {
+    let sTp = 0;
+    let sFp = 0;
+    let sFn = 0;
+    const f1s: number[] = [];
+    for (const c of cases) {
+      const real = evaluate(c.predicted, c.gt, tier);
+      const blind = evaluate(blindPred(c.predicted), blindGt(c.gt), tier);
+      f1s.push(blind.f1);
+      sTp += blind.tp;
+      sFp += blind.fp;
+      sFn += blind.fn;
+      const identical = real.tp === blind.tp && real.fp === blind.fp && real.fn === blind.fn;
+      console.log(
+        `    ${pad(c.caseId, 6)} ${pad(tier, 7)}F1 with title gate = ${f2(real.f1)} (tp${real.tp}/fp${real.fp}/fn${real.fn})  ` +
+          `→ title-blind = ${f2(blind.f1)} (tp${blind.tp}/fp${blind.fp}/fn${blind.fn})  ` +
+          `Δ = ${(blind.f1 - real.f1 >= 0 ? "+" : "") + f2(blind.f1 - real.f1)}  ` +
+          `bit-identical=${identical}`,
+      );
+    }
     console.log(
-      `    ${pad(c.caseId, 6)} strict F1 with title gate = ${f2(real.f1)} (tp${real.tp}/fp${real.fp}/fn${real.fn})  ` +
-        `→ title-blind = ${f2(blind.f1)} (tp${blind.tp}/fp${blind.fp}/fn${blind.fn})  ` +
-        `Δ = ${(blind.f1 - real.f1 >= 0 ? "+" : "") + f2(blind.f1 - real.f1)}`,
+      `    macro-mean title-blind ${tier} F1 = ${f3(f1s.reduce((a, b) => a + b, 0) / f1s.length)}  ` +
+        `· micro tp/fp/fn = ${sTp}/${sFp}/${sFn}`,
     );
   }
-  console.log(
-    `    macro-mean title-blind strict F1 = ${f3(f1s.reduce((a, b) => a + b, 0) / f1s.length)}  ` +
-      `· micro tp/fp/fn = ${sTp}/${sFp}/${sFn}`,
-  );
   console.log("    per event_type, title-blind strict (tp/fp/fn summed over C1+C2):");
   for (const t of ALL_EVENT_TYPES) {
     let tp = 0;

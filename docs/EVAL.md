@@ -162,8 +162,8 @@ You have NOT done held-out NLP eval before. Read this fully before you start. Al
 4. **Title bias.** Don't write titles in the same phrasing the model would use. Write naturally — the matching algorithm uses token-overlap precisely so phrasing differences don't break matching. **[Corrected 2026-07-25 — the second sentence is false as stated. See the correction note below and §7.]**
 5. **Date over-precision.** If the document says "March 2024" don't pick a specific day to make matching easier; use `2024-03-01` and `date_confidence: approximate`. The matching algorithm is calibrated for this. **[Corrected 2026-07-25 — the last sentence is false as stated; the instruction itself stands. See the correction note below and §7.]**
 
-> **CORRECTION (2026-07-25, issue #22) — items 4 and 5 above are wrong in their
-> closing claim. Anyone labeling or re-labeling a case must read §7 first.**
+> **CORRECTION (2026-07-25, issues #22 for item 4 and #25 for item 5) — items 4
+> and 5 above are wrong in their closing claim. Anyone labeling or re-labeling a case must read §7 first.**
 >
 > The text of both items is preserved above **verbatim and deliberately**: it is
 > the labeling instruction Case 3's ground truth was authored under, and
@@ -457,14 +457,25 @@ The strongest single result is a null one. Replace **every** title on both
 sides with one constant string, so `overlap ≡ 1.0` and the production gate
 degenerates to `event_type` + date, and re-score with the same `evaluate()`:
 
-| case  | with title gate      | title-blind          | Δ F1  |
-|-------|----------------------|----------------------|-------|
-| case1 | F1 0.77 (tp12/fp6/fn1) | F1 0.77 (tp12/fp6/fn1) | +0.00 |
-| case2 | F1 0.88 (tp7/fp1/fn1)  | F1 0.88 (tp7/fp1/fn1)  | +0.00 |
+| case  | tier   | with title gate        | title-blind            | Δ F1  |
+|-------|--------|------------------------|------------------------|-------|
+| case1 | strict | F1 0.77 (tp12/fp6/fn1) | F1 0.77 (tp12/fp6/fn1) | +0.00 |
+| case1 | loose  | F1 0.77 (tp12/fp6/fn1) | F1 0.77 (tp12/fp6/fn1) | +0.00 |
+| case2 | strict | F1 0.88 (tp7/fp1/fn1)  | F1 0.88 (tp7/fp1/fn1)  | +0.00 |
+| case2 | loose  | F1 0.88 (tp7/fp1/fn1)  | F1 0.88 (tp7/fp1/fn1)  | +0.00 |
+
+Macro-mean title-blind F1 is **0.825** and micro tp/fp/fn **19/7/2** on both
+tiers — the published dev headline reproduced exactly with titles removed from
+the metric entirely.
 
 Not merely the same F1 — **bit-identical tp/fp/fn** on all four (case, tier)
-combinations, and in the fixtures' own array ordering the **individual
-GT↔prediction pairings** are unchanged too, not just the counts.
+combinations. The diagnostic rescores both tiers title-blind and prints
+`bit-identical=true` on each of those four rows, so the claim is checkable line
+by line against the script's output rather than inferred from the strict pair
+alone. The loose rows earn their place: widening the date tier to ±3 days does
+not make the title gate start mattering either, so the null result is not an
+artifact of the strict tier. And in the fixtures' own array ordering the
+**individual GT↔prediction pairings** are unchanged too, not just the counts.
 
 The gate is not inert. **[Corrected 2026-07-26 — this paragraph previously
 said the constraint "rejects zero candidate pairs on Cases 1+2". That is
@@ -581,18 +592,58 @@ mismatch costs **twice**: the GT event becomes an FN *and* the correct
 prediction becomes an FP, so precision and recall fall together, which is the
 signature of a matching failure rather than an extraction failure.
 
-### One claim in this document is wrong
+### Two claims in this document are wrong
 
-§5's labeling guidance tells the labeler: *"Don't write titles in the same
-phrasing the model would use. Write naturally — the matching algorithm uses
-token-overlap precisely so phrasing differences don't break matching."* The
-second half of that sentence is **not true as stated**, and Case 3's labels
-were authored under it. Token overlap tolerates phrasing differences only while
-the two titles stay within 2× of each other in token count and share more than
-half the longer one's vocabulary. It does not tolerate a terse label against a
-verbose prediction. Anyone re-labeling a case should be told the real
-constraint: **a label whose token count is less than half its prediction's can
-never match**, so head-noun-only titles are unsafe against this matcher.
+Both are closing assurances in §5's labeling guidance, both were live when Case
+3 was labeled, and both are marked in place there rather than rewritten (see
+the correction blockquote in §5). They are **not** of equal weight, and the
+difference is stated below rather than smoothed over.
+
+**(1) Item 4 — the title claim (issue #22).** §5's labeling guidance tells the
+labeler: *"Don't write titles in the same phrasing the model would use. Write
+naturally — the matching algorithm uses token-overlap precisely so phrasing
+differences don't break matching."* The second half of that sentence is **not
+true as stated**, and Case 3's labels were authored under it. Token overlap
+tolerates phrasing differences only while the two titles stay within 2× of each
+other in token count and share more than half the longer one's vocabulary. It
+does not tolerate a terse label against a verbose prediction. Anyone re-labeling
+a case should be told the real constraint: **a label whose token count is less
+than half its prediction's can never match**, so head-noun-only titles are
+unsafe against this matcher.
+
+**(2) Item 5 — the `date_confidence` claim (issue #25).** Item 5 tells the
+labeler to record a month-only date as `2024-03-01` with
+`date_confidence: approximate`, and closes: *"The matching algorithm is
+calibrated for this."* It is not. `matchesEvent` never reads `date_confidence`
+at all — the field is required by the tool schema (`lib/schema.ts`) on
+predictions and labels alike, and the matcher discards it on both sides. There
+is no widening of date tolerance for an approximate date anywhere in
+`lib/eval.ts`. Strict requires `diffDays === 0`, so a month-only label parked on
+the 1st matches only if the model independently emits that same day; loose's ±3
+days covers only the 1st-4th of a ~31-day ambiguity window. The convention is
+also one-sided: `prompts/system_extract_v4.md` tells the model how to *classify*
+a partial date but never what day to emit for one, so nothing anchors the model
+to the first of the month the way item 5 anchors the labeler. **Item 5's actual
+instruction stands** — `2024-03-01` + `approximate` is correct labeling and
+inventing a specific day would be worse; only the closing assurance is wrong.
+
+**Item 4's confound is unconditional; item 5's is conditional and unverified.**
+Every label has a title, so the overlap gate was in force on every match
+decision ever made against Case 3; what is unmeasured there is the *magnitude*
+of the resulting bias, not whether the gate applied. Item 5's confound bites only if Case 3's labels contain
+any approximate or inferred dates, which cannot be established without opening
+the held-out ground truth (§6 forbids it), so whether item 5 is a Case 3
+confound **at all** is unknown and stays unknown. This section's own instrument
+does not corroborate item 5 either: the attribution table's `date` column is
+constant at 2 at every level, and both misses are disagreements on
+exact-confidence events (`Continue metformin 850 mg b.i.d.`, 306 days out;
+`Core needle biopsy scheduled`, 9 days out), not over-precision on an
+approximate label — the dev labels never exercise item 5's rule at all. (That
+last statement rests on the dev GT `date_confidence` census, which is read
+directly off the dev fixtures and recorded in §5's correction note; it is not
+one of this section's script-emitted numbers.) Item 4 is a measured mechanism
+of unquantified magnitude on Case 3; item 5 is a documented mismatch between an
+instruction and the code, of unknown applicability to Case 3.
 
 ### What this does and does not license concluding about Case 3
 
