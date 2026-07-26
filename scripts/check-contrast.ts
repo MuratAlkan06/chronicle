@@ -3,10 +3,12 @@
  *
  * The ink tokens (`--color-ink*` in app/globals.css) are used for every text
  * surface in the app, including 9-12px micro-labels, so each one must clear the
- * WCAG 2.x SC 1.4.3 AA threshold for normal text (4.5:1) against EVERY page
- * background — `--color-base` (the app/landing background), `--color-surface`
- * (cards, panels, the side panel) and `--color-base-warm` (the landing page's
- * alternating "warm" section tone).
+ * WCAG 2.x SC 1.4.3 AA threshold for normal text (4.5:1) against every
+ * *tokenized page background* — `--color-base` (the app/landing background),
+ * `--color-surface` (cards, panels, the side panel) and `--color-base-warm`
+ * (the landing page's alternating "warm" section tone). Composited / rgba
+ * backgrounds are out of scope for this gate and are tracked in issue #20; see
+ * BACKGROUND_TOKENS below.
  *
  * Tokens are read out of app/globals.css rather than hard-coded here, so this
  * script gates the real source of truth: change a hex there, re-run this, and a
@@ -36,11 +38,18 @@ const AA_NORMAL = 4.5;
 const INK_PREFIX = "--color-ink";
 
 /**
- * Backgrounds every ink token has to survive — every background the app
- * actually paints. Add a token here the moment a new one ships: cycle 23's
- * design review caught `#F5F5F0` hard-coded in app/page.tsx, which this gate
- * could not see because it was a literal rather than a token, and it hid a
- * genuine 4.486:1 AA failure on six shipped 11px labels.
+ * Backgrounds every ink token has to survive — every *tokenized page
+ * background* the app paints. NOT every background it paints: composited /
+ * rgba backgrounds are OUT OF SCOPE for this gate and are tracked separately
+ * in issue #20 (e.g. the inline `rgba(..., 0.10)` sticky-note tints in
+ * components/blocks/hero-scroll-board.tsx, which override their own
+ * `bg-surface` class — there is no hex to grep for and no token to parse, so
+ * neither this script nor a literal search can see them).
+ *
+ * Add a token here the moment a new one ships: cycle 23's design review caught
+ * `#F5F5F0` hard-coded in app/page.tsx, which this gate could not see because
+ * it was a literal rather than a token, and it hid a genuine 4.486:1 AA
+ * failure on six shipped 11px labels.
  */
 const BACKGROUND_TOKENS = [
   "--color-base",

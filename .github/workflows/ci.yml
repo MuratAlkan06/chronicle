@@ -60,7 +60,8 @@ jobs:
       # Added in cycle 23 (issue #16): the ink tokens in app/globals.css are the
       # 9-12px micro-label colours, so a regression there is a WCAG 2.x AA
       # failure that no other gate can see. The script parses the hexes out of
-      # the stylesheet and exits 1 if any ink token drops below 4.5:1 on either
-      # page background. Not part of `npm test` (that runs lib/*.test.ts only).
+      # the stylesheet and exits 1 if any ink token drops below 4.5:1 on any of
+      # the three tokenized page backgrounds (base, surface, base-warm).
+      # Not part of `npm test` (that runs lib/*.test.ts only).
       - name: Contrast check (WCAG AA)
         run: npx tsx scripts/check-contrast.ts
