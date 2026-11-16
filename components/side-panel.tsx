@@ -150,7 +150,10 @@ function PanelBody({
         <ExplainerSection key={event.id} event={event} />
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      {/* scrollbar-gutter-stable: PdfViewer sizes the page to this box's
+          width, so that width must not change when a scrollbar appears or
+          goes away (see pdf-viewer.tsx). */}
+      <div className="flex-1 overflow-auto p-4 scrollbar-gutter-stable">
         {source && mounted ? (
           <PdfViewer
             source={source}

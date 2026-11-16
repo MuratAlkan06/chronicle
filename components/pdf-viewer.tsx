@@ -45,6 +45,12 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
   // overflow can't be scrolled to. react-pdf needs the width as a prop (CSS
   // scaling would misalign the text layer), so measure the Document's content
   // box; a resize re-renders the text layer, which re-runs the highlight.
+  //
+  // That width must not depend on the page's own height. If the scroll
+  // container around the viewer reserves a scrollbar only while its content
+  // overflows, a page that just overflows narrows itself, stops overflowing,
+  // widens again, and re-renders in a loop. The consumer's scroll container
+  // therefore sets `scrollbar-gutter: stable` (SidePanel does).
   const [pageWidth, setPageWidth] = useState<number | null>(null);
   useEffect(() => {
     const el = documentRef.current;
