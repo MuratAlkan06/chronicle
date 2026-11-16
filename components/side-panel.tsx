@@ -75,9 +75,13 @@ export function SidePanel({
         if (!next) onClose();
       }}
     >
+      {/* Width classes carry the sheet's own `data-[side=right]:` prefix: the
+          sheet scopes its `w-3/4` / `sm:max-w-sm` defaults to that attribute,
+          which out-specifies unprefixed utilities, and cn() only merges classes
+          with matching prefixes — so unprefixed overrides silently lose. */}
       <SheetContent
         side="right"
-        className="w-full bg-base p-0 sm:max-w-[640px]"
+        className="bg-base p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[640px]"
       >
         {event ? (
           <PanelBody
@@ -146,7 +150,10 @@ function PanelBody({
         <ExplainerSection key={event.id} event={event} />
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      {/* scrollbar-gutter-stable: PdfViewer sizes the page to this box's
+          width, so that width must not change when a scrollbar appears or
+          goes away (see pdf-viewer.tsx). */}
+      <div className="flex-1 overflow-auto p-4 scrollbar-gutter-stable">
         {source && mounted ? (
           <PdfViewer
             source={source}

@@ -32,9 +32,36 @@ interface PdfViewerProps {
   snippet: string;
 }
 
+/** The page's 1 px `border` on each side, drawn outside the rendered width. */
+const PAGE_BORDER_PX = 2;
+
 export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const documentRef = useRef<HTMLDivElement>(null);
   const [pageLoaded, setPageLoaded] = useState(false);
+
+  // Render the page at the width the panel gives it. A fixed width wider than
+  // the panel overflowed the centered flex row on both sides, and the left
+  // overflow can't be scrolled to. react-pdf needs the width as a prop (CSS
+  // scaling would misalign the text layer), so measure the Document's content
+  // box; a resize re-renders the text layer, which re-runs the highlight.
+  //
+  // That width must not depend on the page's own height. If the scroll
+  // container around the viewer reserves a scrollbar only while its content
+  // overflows, a page that just overflows narrows itself, stops overflowing,
+  // widens again, and re-renders in a loop. The consumer's scroll container
+  // therefore sets `scrollbar-gutter: stable` (SidePanel does).
+  const [pageWidth, setPageWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = documentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.floor(entry.contentRect.width) - PAGE_BORDER_PX;
+      if (width > 0) setPageWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const [matchOutcome, setMatchOutcome] = useState<
     "pending" | "matched" | "fallback"
   >("pending");
@@ -69,7 +96,13 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
       return;
     }
 
-    const spans = Array.from(layer.querySelectorAll<HTMLElement>("span"));
+    // Text spans only. pdf.js wraps marked-content runs in zero-size
+    // `span.markedContent` containers (some of them empty) whose textContent
+    // repeats their children's text; matching against them duplicates text
+    // and can land the highlight on an invisible wrapper.
+    const spans = Array.from(
+      layer.querySelectorAll<HTMLElement>("span:not(.markedContent)"),
+    );
     const texts = spans.map((s) => s.textContent ?? "");
 
     const result = matchSnippet(texts, snippet);
@@ -136,20 +169,23 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
       ) : null}
       <Document
         file={file}
+        inputRef={documentRef}
         loading={<PdfLoadingState />}
         error={<PdfErrorState />}
         className="flex w-full justify-center bg-base p-4"
       >
-        <Page
-          pageNumber={page}
-          width={520}
-          onLoadSuccess={() => setPageLoaded(true)}
-          onRenderTextLayerSuccess={handleTextLayerSuccess}
-          renderTextLayer
-          renderAnnotationLayer={false}
-          loading={<PdfLoadingState />}
-          className="overflow-hidden rounded-sm border border-line bg-surface shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
-        />
+        {pageWidth === null ? null : (
+          <Page
+            pageNumber={page}
+            width={pageWidth}
+            onLoadSuccess={() => setPageLoaded(true)}
+            onRenderTextLayerSuccess={handleTextLayerSuccess}
+            renderTextLayer
+            renderAnnotationLayer={false}
+            loading={<PdfLoadingState />}
+            className="overflow-hidden rounded-sm border border-line bg-surface shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
+          />
+        )}
       </Document>
       {!pageLoaded ? null : null}
     </div>
