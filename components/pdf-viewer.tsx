@@ -69,7 +69,13 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
       return;
     }
 
-    const spans = Array.from(layer.querySelectorAll<HTMLElement>("span"));
+    // Text spans only. pdf.js wraps marked-content runs in zero-size
+    // `span.markedContent` containers (some of them empty) whose textContent
+    // repeats their children's text; matching against them duplicates text
+    // and can land the highlight on an invisible wrapper.
+    const spans = Array.from(
+      layer.querySelectorAll<HTMLElement>("span:not(.markedContent)"),
+    );
     const texts = spans.map((s) => s.textContent ?? "");
 
     const result = matchSnippet(texts, snippet);

@@ -7,7 +7,7 @@ export interface MatchResult {
   windowSize: number | null;
 }
 
-const MIN_WINDOW = 5;
+const MIN_WINDOW = 1;
 const MAX_WINDOW = 30;
 
 const NO_MATCH: MatchResult = {
@@ -23,9 +23,11 @@ const NO_MATCH: MatchResult = {
  * the smallest contiguous run of spans whose joined-and-normalized text
  * contains the normalized snippet.
  *
- * Window sizes: 5..30 inclusive, smaller first so the highlight overlay is
- * tight. Case-insensitive containment. Degenerate small-doc fallback: if
- * `spans.length` is below MIN_WINDOW, also try the whole array as one window.
+ * Window sizes: 1..30 inclusive, smallest first, so the highlight covers only
+ * the spans the snippet needs (a quote that fits in one span highlights that
+ * span alone, not the lines before it). Because the first hit is minimal, the
+ * run never starts or ends on a span that adds no text (empty or
+ * whitespace-only). Case-insensitive containment.
  */
 export function matchSnippet(spans: string[], snippet: string): MatchResult {
   const target = normalize(snippet).toLowerCase();
@@ -38,13 +40,6 @@ export function matchSnippet(spans: string[], snippet: string): MatchResult {
       if (normalize(joined).toLowerCase().includes(target)) {
         return { matched: true, startSpan: start, endSpan: start + win, windowSize: win };
       }
-    }
-  }
-
-  if (spans.length < MIN_WINDOW) {
-    const joined = spans.join(" ");
-    if (normalize(joined).toLowerCase().includes(target)) {
-      return { matched: true, startSpan: 0, endSpan: spans.length, windowSize: spans.length };
     }
   }
 

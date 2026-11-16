@@ -93,13 +93,80 @@ test("empty snippet returns no match", () => {
   assert.equal(matchSnippet(["a", "b", "c"], "").matched, false);
 });
 
-test("degenerate small-doc fallback: spans.length < 5 still attempts whole-array window", () => {
+test("short span array: window is tight, not padded back to the array start", () => {
   const spans = ["the", "quick", "brown", "fox"];
   const result = matchSnippet(spans, "quick brown fox");
   assert.equal(result.matched, true);
-  assert.equal(result.startSpan, 0);
+  assert.equal(result.startSpan, 1);
   assert.equal(result.endSpan, 4);
-  assert.equal(result.windowSize, 4);
+  assert.equal(result.windowSize, 3);
+});
+
+// Span arrays below are modeled on the pdf.js text layer of
+// d1_pcp_2023_01.pdf p.2-3 (one entry per leaf text span, including the
+// whitespace-only spans pdf.js emits between table cells).
+const D1_P2_SPANS = [
+  "TSH",
+  " ",
+  "2.1",
+  " ",
+  "0.4-4.0 mIU/L",
+  "HbA1c: 9.2% (H) — Reference range 4.0-5.6%.",
+  "Results consistent with new-onset Type 2 diabetes.",
+];
+
+test("regression: single-span quote highlights only its own span (window floor was 5)", () => {
+  // With a 5-span floor the first hit started 4 spans early, so the TSH row
+  // ("2.1", "0.4-4.0 mIU/L") was highlighted instead of the HbA1c line.
+  const result = matchSnippet(D1_P2_SPANS, "HbA1c: 9.2% (H) — Reference range 4.0-5.6%.");
+  assert.deepEqual(result, { matched: true, startSpan: 5, endSpan: 6, windowSize: 1 });
+});
+
+test("multi-span quote: line-wrapped sentence spans exactly its lines", () => {
+  const spans = [
+    "ASSESSMENT & PLAN (A&P)",
+    "Assessment: Type 2 Diabetes Mellitus (E11.9) — added to",
+    "problem list.",
+    "1. T2D, new diagnosis. Initiate metformin per below.",
+  ];
+  const result = matchSnippet(
+    spans,
+    "Assessment: Type 2 Diabetes Mellitus (E11.9) — added to problem list.",
+  );
+  assert.deepEqual(result, { matched: true, startSpan: 1, endSpan: 3, windowSize: 2 });
+});
+
+test("multi-span quote: table row across cell spans and whitespace spans", () => {
+  const spans = ["Test", " ", "Result", "Glucose, fasting", " ", "187", " ", "H", " ", "70-99 mg/dL", "HbA1c"];
+  const result = matchSnippet(spans, "Glucose, fasting 187 H 70-99 mg/dL");
+  assert.deepEqual(result, { matched: true, startSpan: 3, endSpan: 10, windowSize: 7 });
+});
+
+test("zero-size (empty) and whitespace-only spans interleaved: run is trimmed to text spans, indices stay aligned", () => {
+  // Empty pdf.js spans have no text and no box; whitespace-only spans sit
+  // between table cells. Indices must still map 1:1 onto the caller's span
+  // array, and the run must not start or end on one of them. (The DOM-side
+  // filter that drops pdf.js `span.markedContent` wrappers lives in
+  // components/pdf-viewer.tsx and is covered by the browser probe, not here:
+  // this suite has no DOM.)
+  const spans = ["Header", "", " ", "Plan: Start metformin", "", " ", "500 mg PO b.i.d.", " ", "", "Footer"];
+  const result = matchSnippet(spans, "Start metformin 500 mg PO b.i.d.");
+  assert.deepEqual(result, { matched: true, startSpan: 3, endSpan: 7, windowSize: 4 });
+});
+
+test("absent quote over spans returns the not-found result", () => {
+  assert.deepEqual(matchSnippet(D1_P2_SPANS, "HbA1c: 7.2% (H) — Reference range 4.0-5.6%."), {
+    matched: false,
+    startSpan: null,
+    endSpan: null,
+    windowSize: null,
+  });
+});
+
+test("case folding applies to span input: lower-case quote matches upper-case heading span", () => {
+  const spans = ["d1_pcp_2023_01", "ASSESSMENT & PLAN (A&P)", "Assessment: Type 2 Diabetes Mellitus"];
+  const result = matchSnippet(spans, "assessment & plan (a&p)");
+  assert.deepEqual(result, { matched: true, startSpan: 1, endSpan: 2, windowSize: 1 });
 });
 
 test("snippet longer than 30 spans returns no match (window cap is honored)", () => {
