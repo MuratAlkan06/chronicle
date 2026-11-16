@@ -272,7 +272,7 @@ If Tier 1 (related) is broken: cut and move on. If Tier 1 works but other items 
 - [ ] Disclaimer footer text is visible and readable on every screen including `/eval`
 - [ ] Drag-drop works for at least one ad-hoc PDF (the judge's-PDF moment, optional but de-risks)
 - [ ] Streaming insertion animation plays smoothly for Cases 1 + 2 (no flicker, no mid-position jumps, no card overlap during animation)
-- [ ] Click 3 random event cards → side panel opens, PDF page-jumps to the right page, snippet highlighted with `<mark>` (or top-of-page banner fallback rendered visibly)
+- [ ] Click 3 random event cards → side panel opens, PDF page-jumps to the right page, snippet highlighted via inline-style background on text-layer spans (or top-of-page banner fallback rendered visibly)
 - [ ] Side panel closes on X, ESC, and click-outside
 - [ ] Severity colors visually distinct under Chrome DevTools → Rendering → Emulate vision deficiencies → Deuteranopia, then Protanopia (verifies the locked palette in [FRONTEND-STANDARDS.md](FRONTEND-STANDARDS.md) §H.1; specifically that concerning `#DC2626` and urgent `#991B1B` — both reds — remain distinguishable; swap urgent only to `#7F1D1D` if they collapse)
 - [ ] Footer "View evaluation metrics" link navigates to `/eval`
