@@ -8,7 +8,7 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 
 **Beat 1 — Main app, Cases 1+2 (0:00 – 1:30, ~90s)**
 - Click "Load Sarah Chen, 47F — Type 2 Diabetes" preset button.
-- *Narrate:* "Sarah has 18 months of records across 7 documents from 3 providers. Watch."
+- *Narrate:* "Sarah has 18 months of records across 7 documents. Watch."
 - Drag-drop walkthrough is *visual* — let the streaming insert play. Don't talk over the first 5 seconds of animation.
 - *Narrate after first 3 events appear:* "Each card cites a specific page. Click any of them."
 - Click one event card → side panel opens, PDF renders, snippet highlighted.
@@ -29,7 +29,7 @@ Refining the locked 4-beat flow with timing, narration, and the Case 3 fallback.
 - Expand the methodology `<details>` for ~5 seconds, just to show the prompt-hash + the held-out claim line (Case 3 never used in iteration; GT locked before any Case 3 measurement).
 
 **Beat 4 — Close (3:30 – 4:00, ~30s)**
-- Click browser back to `/app`. Sarah's timeline still visible.
+- Click browser back to `/app` and click the Sarah Chen preset again — `/app` clears its timeline when you navigate away, so it won't still be there. The cached replay refills it in ~10s (7 docs × 1.5s); let it land before the line below.
 - *Narrate:* "30 documents, 5 doctors, no throughline. Chronicle is the throughline."
 - Pause. Stop talking. Let the timeline be the last image.
 
