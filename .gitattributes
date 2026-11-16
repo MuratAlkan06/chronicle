@@ -1,0 +1,7 @@
+# GitHub language statistics (linguist).
+#
+# public/pdf.worker.min.mjs is the vendored, minified pdf.js worker. At about
+# 1 MB it outweighs the app's own TypeScript (about 0.8 MB of .ts/.tsx), which
+# made GitHub label this repository JavaScript. Marking it vendored removes it
+# from the language bar; nothing about the build or the served file changes.
+public/pdf.worker.min.mjs linguist-vendored
