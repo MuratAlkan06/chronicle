@@ -32,9 +32,30 @@ interface PdfViewerProps {
   snippet: string;
 }
 
+/** The page's 1 px `border` on each side, drawn outside the rendered width. */
+const PAGE_BORDER_PX = 2;
+
 export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const documentRef = useRef<HTMLDivElement>(null);
   const [pageLoaded, setPageLoaded] = useState(false);
+
+  // Render the page at the width the panel gives it. A fixed width wider than
+  // the panel overflowed the centered flex row on both sides, and the left
+  // overflow can't be scrolled to. react-pdf needs the width as a prop (CSS
+  // scaling would misalign the text layer), so measure the Document's content
+  // box; a resize re-renders the text layer, which re-runs the highlight.
+  const [pageWidth, setPageWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = documentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.floor(entry.contentRect.width) - PAGE_BORDER_PX;
+      if (width > 0) setPageWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const [matchOutcome, setMatchOutcome] = useState<
     "pending" | "matched" | "fallback"
   >("pending");
@@ -142,20 +163,23 @@ export default function PdfViewer({ source, page, snippet }: PdfViewerProps) {
       ) : null}
       <Document
         file={file}
+        inputRef={documentRef}
         loading={<PdfLoadingState />}
         error={<PdfErrorState />}
         className="flex w-full justify-center bg-base p-4"
       >
-        <Page
-          pageNumber={page}
-          width={520}
-          onLoadSuccess={() => setPageLoaded(true)}
-          onRenderTextLayerSuccess={handleTextLayerSuccess}
-          renderTextLayer
-          renderAnnotationLayer={false}
-          loading={<PdfLoadingState />}
-          className="overflow-hidden rounded-sm border border-line bg-surface shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
-        />
+        {pageWidth === null ? null : (
+          <Page
+            pageNumber={page}
+            width={pageWidth}
+            onLoadSuccess={() => setPageLoaded(true)}
+            onRenderTextLayerSuccess={handleTextLayerSuccess}
+            renderTextLayer
+            renderAnnotationLayer={false}
+            loading={<PdfLoadingState />}
+            className="overflow-hidden rounded-sm border border-line bg-surface shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
+          />
+        )}
       </Document>
       {!pageLoaded ? null : null}
     </div>
